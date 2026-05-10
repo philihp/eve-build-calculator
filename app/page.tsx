@@ -219,16 +219,19 @@ export default function Home() {
             </option>
           ))}
         </select>
-        <select
-          value={selectedME}
-          onChange={(e) => setSelectedME(Number(e.target.value))}
-        >
-          {ME_LEVELS.map((me) => (
-            <option key={me} value={me}>
-              ME {me}%
-            </option>
-          ))}
-        </select>
+        <label>
+          ME{" "}
+          <select
+            value={selectedME}
+            onChange={(e) => setSelectedME(Number(e.target.value))}
+          >
+            {ME_LEVELS.map((me) => (
+              <option key={me} value={me}>
+                {me}%
+              </option>
+            ))}
+          </select>
+        </label>
         <button onClick={addEntry}>Add</button>
       </div>
 
