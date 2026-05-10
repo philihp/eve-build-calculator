@@ -150,7 +150,9 @@ const SHIP_CATALOG: CatalogEntry[] = [
 
 // ── Ship Entry (list state) ────────────────────────────────────────────────────
 
-type ShipEntry = CatalogEntry & { id: string; count: number };
+type ShipEntry = CatalogEntry & { id: string; count: number; me: number };
+
+const ME_LEVELS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
 
 // ── Pure computation ───────────────────────────────────────────────────────────
 
@@ -176,10 +178,18 @@ const computeTotals = (
 export default function Home() {
   const [entries, setEntries] = useState<ShipEntry[]>([]);
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const [selectedME, setSelectedME] = useState(0);
 
   const addEntry = () => {
     const catalog = SHIP_CATALOG[selectedIdx];
-    setEntries(R.append({ id: crypto.randomUUID(), ...catalog, count: 0 }));
+    setEntries(
+      R.append({
+        id: crypto.randomUUID(),
+        ...catalog,
+        count: 0,
+        me: selectedME,
+      }),
+    );
   };
 
   const updateCount = (id: string, delta: number) =>
@@ -209,6 +219,19 @@ export default function Home() {
             </option>
           ))}
         </select>
+        <label>
+          ME{" "}
+          <select
+            value={selectedME}
+            onChange={(e) => setSelectedME(Number(e.target.value))}
+          >
+            {ME_LEVELS.map((me) => (
+              <option key={me} value={me}>
+                {me}%
+              </option>
+            ))}
+          </select>
+        </label>
         <button onClick={addEntry}>Add</button>
       </div>
 
