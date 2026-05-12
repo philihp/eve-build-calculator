@@ -16,12 +16,12 @@ export async function GET(
   if (!Number.isInteger(id) || id <= 0) {
     return NextResponse.json({ error: "invalid typeID" }, { status: 400 });
   }
-  const blueprint = BLUEPRINT_BY_TYPE_ID[id];
-  if (!blueprint) {
+  const entry = BLUEPRINT_BY_TYPE_ID[id];
+  if (!entry) {
     return NextResponse.json(
       { error: "ship hull not found", typeID: id },
       { status: 404 },
     );
   }
-  return NextResponse.json(blueprint);
+  return NextResponse.json(entry.blueprint);
 }
