@@ -42,3 +42,6 @@ next-env.d.ts
 
 # SDE refresh cache
 /.cache/
+
+# SDE jsonl files served at /sde/* — produced by `npm run prebuild`
+/public/sde/
