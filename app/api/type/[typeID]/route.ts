@@ -32,7 +32,7 @@ async function loadTypes(): Promise<Map<string, string>> {
 
 export async function generateStaticParams() {
   const types = await loadTypes();
-  return [...types.keys()].map((typeID) => ({ typeID }));
+  return Array.from(types.keys(), (typeID) => ({ typeID }));
 }
 
 export async function GET(
