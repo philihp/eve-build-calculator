@@ -1,38 +1,29 @@
-import { createReadStream } from "node:fs";
 import { join } from "node:path";
-import { createInterface } from "node:readline";
+import { DatabaseSync } from "node:sqlite";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-static";
 export const dynamicParams = false;
 
-const TYPES_PATH = join(process.cwd(), "public", "sde", "types.jsonl");
+const DB_PATH = join(process.cwd(), ".cache", "sde.db");
 
-let typesCache: Map<string, string> | null = null;
+// Prerender only the 200 lowest typeIDs at build time. Generating a page for
+// every row in types.jsonl (~50k+) blows up build time; the long tail can be
+// added back later if/when something actually consumes those endpoints.
+const STATIC_LIMIT = 200;
 
-async function loadTypes(): Promise<Map<string, string>> {
-  if (typesCache) return typesCache;
-  const map = new Map<string, string>();
-  const rl = createInterface({
-    input: createReadStream(TYPES_PATH),
-    crlfDelay: Infinity,
-  });
-  for await (const line of rl) {
-    if (!line.trim()) continue;
-    const t = JSON.parse(line) as {
-      typeID?: number | string;
-      _key?: number | string;
-    };
-    const id = t.typeID ?? t._key;
-    if (id != null) map.set(String(id), line);
-  }
-  typesCache = map;
-  return map;
+let dbInstance: DatabaseSync | null = null;
+function getDb(): DatabaseSync {
+  if (dbInstance) return dbInstance;
+  dbInstance = new DatabaseSync(DB_PATH, { readOnly: true });
+  return dbInstance;
 }
 
 export async function generateStaticParams() {
-  const types = await loadTypes();
-  return Array.from(types.keys(), (typeID) => ({ typeID }));
+  const rows = getDb()
+    .prepare("SELECT id FROM types ORDER BY id ASC LIMIT ?")
+    .all(STATIC_LIMIT) as { id: number | bigint }[];
+  return rows.map((r) => ({ typeID: String(r.id) }));
 }
 
 export async function GET(
@@ -40,10 +31,11 @@ export async function GET(
   { params }: { params: Promise<{ typeID: string }> },
 ) {
   const { typeID } = await params;
-  const types = await loadTypes();
-  const json = types.get(typeID);
-  if (!json) return new NextResponse("not found", { status: 404 });
-  return new NextResponse(json, {
+  const row = getDb()
+    .prepare("SELECT json FROM types WHERE id = ?")
+    .get(Number(typeID)) as { json: string } | undefined;
+  if (!row) return new NextResponse("not found", { status: 404 });
+  return new NextResponse(row.json, {
     headers: { "content-type": "application/json; charset=utf-8" },
   });
 }
