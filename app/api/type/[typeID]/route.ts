@@ -1,38 +1,18 @@
-import { createReadStream } from "node:fs";
-import { join } from "node:path";
-import { createInterface } from "node:readline";
+import { BlobNotFoundError, head } from "@vercel/blob";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-static";
-export const dynamicParams = false;
+// Prerender only the lowest 200 typeIDs (see generateStaticParams). Letting
+// the long tail render on demand keeps the build fast while still making any
+// typeID reachable at /api/type/{id}.json — Next caches the rendered output.
+export const dynamicParams = true;
 
-const TYPES_PATH = join(process.cwd(), "public", "sde", "types.jsonl");
-
-let typesCache: Map<string, string> | null = null;
-
-async function loadTypes(): Promise<Map<string, string>> {
-  if (typesCache) return typesCache;
-  const map = new Map<string, string>();
-  const rl = createInterface({
-    input: createReadStream(TYPES_PATH),
-    crlfDelay: Infinity,
-  });
-  for await (const line of rl) {
-    if (!line.trim()) continue;
-    const t = JSON.parse(line) as {
-      typeID?: number | string;
-      _key?: number | string;
-    };
-    const id = t.typeID ?? t._key;
-    if (id != null) map.set(String(id), line);
-  }
-  typesCache = map;
-  return map;
-}
+const STATIC_LIMIT = 200;
 
 export async function generateStaticParams() {
-  const types = await loadTypes();
-  return Array.from(types.keys(), (typeID) => ({ typeID }));
+  const indexBlob = await head("types/_ids.json");
+  const ids = (await fetch(indexBlob.url).then((r) => r.json())) as number[];
+  return ids.slice(0, STATIC_LIMIT).map((id) => ({ typeID: String(id) }));
 }
 
 export async function GET(
@@ -40,10 +20,18 @@ export async function GET(
   { params }: { params: Promise<{ typeID: string }> },
 ) {
   const { typeID } = await params;
-  const types = await loadTypes();
-  const json = types.get(typeID);
-  if (!json) return new NextResponse("not found", { status: 404 });
-  return new NextResponse(json, {
+  let blob;
+  try {
+    blob = await head(`types/${typeID}.json`);
+  } catch (e) {
+    if (e instanceof BlobNotFoundError) {
+      return new NextResponse("not found", { status: 404 });
+    }
+    throw e;
+  }
+  const upstream = await fetch(blob.url);
+  const body = await upstream.text();
+  return new NextResponse(body, {
     headers: { "content-type": "application/json; charset=utf-8" },
   });
 }
