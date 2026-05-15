@@ -15,22 +15,46 @@ export async function generateStaticParams() {
 
 const LOCAL_TYPES_PATH = join(process.cwd(), "public", "sde", "types.jsonl");
 
-let localCache: Map<string, string> | null = null;
-async function loadLocalTypes(): Promise<Map<string, string>> {
-  if (localCache) return localCache;
-  const map = new Map<string, string>();
-  const rl = createInterface({
-    input: createReadStream(LOCAL_TYPES_PATH),
-    crlfDelay: Infinity,
-  });
-  for await (const line of rl) {
-    if (!line.trim()) continue;
-    const t = JSON.parse(line) as { typeID?: number; _key?: number };
-    const id = t.typeID ?? t._key;
+let typesCachePromise: Promise<Map<string, string>> | null = null;
+
+function indexLine(map: Map<string, string>, line: string): void {
+  if (!line.trim()) return;
+  try {
+    const obj = JSON.parse(line) as { typeID?: number; _key?: number };
+    const id = obj.typeID ?? obj._key;
     if (id != null) map.set(String(id), line);
+  } catch {
+    // ignore malformed rows
   }
-  localCache = map;
+}
+
+async function buildTypesMap(): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (existsSync(LOCAL_TYPES_PATH)) {
+    const rl = createInterface({
+      input: createReadStream(LOCAL_TYPES_PATH),
+      crlfDelay: Infinity,
+    });
+    for await (const line of rl) indexLine(map, line);
+    return map;
+  }
+  // No local file (Vercel runtime where /public is on the CDN, not the
+  // function bundle). Fetch the deployment's own static asset.
+  const baseUrl = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : "http://localhost:3000";
+  const res = await fetch(`${baseUrl}/sde/types.jsonl`);
+  if (!res.ok) {
+    throw new Error(`failed to fetch types.jsonl from ${baseUrl}: ${res.status}`);
+  }
+  const text = await res.text();
+  for (const line of text.split("\n")) indexLine(map, line);
   return map;
+}
+
+function loadTypesMap(): Promise<Map<string, string>> {
+  typesCachePromise ??= buildTypesMap();
+  return typesCachePromise;
 }
 
 async function fetchTypeJson(typeID: string): Promise<string | null> {
@@ -44,10 +68,7 @@ async function fetchTypeJson(typeID: string): Promise<string | null> {
       throw e;
     }
   }
-  // Local-dev fallback: serve straight out of the file the prebuild step
-  // extracted into /public/sde/.
-  if (!existsSync(LOCAL_TYPES_PATH)) return null;
-  const map = await loadLocalTypes();
+  const map = await loadTypesMap();
   return map.get(typeID) ?? null;
 }
 
