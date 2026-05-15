@@ -96,9 +96,15 @@ async function readTypesJsonl() {
 
 async function uploadToBlob(rows) {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    throw new Error(
-      "BLOB_READ_WRITE_TOKEN is not set — link a Vercel Blob store to this project (or `vercel env pull` for local).",
+    if (process.env.VERCEL) {
+      throw new Error(
+        "BLOB_READ_WRITE_TOKEN is not set — link the Vercel Blob store to this project and enable it for this environment.",
+      );
+    }
+    console.warn(
+      "→ skipping Blob upload: BLOB_READ_WRITE_TOKEN not set. The route will read /public/sde/types.jsonl directly. Run `vercel env pull` to upload locally.",
     );
+    return { skipped: true };
   }
   console.log(
     `→ uploading ${rows.length} type blobs (concurrency=${UPLOAD_CONCURRENCY})`,
