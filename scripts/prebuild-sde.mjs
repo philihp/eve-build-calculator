@@ -131,17 +131,7 @@ async function uploadToBlob(rows) {
   console.log(
     `  uploaded ${done} type blobs in ${((Date.now() - start) / 1000).toFixed(1)}s`,
   );
-
-  const ids = rows.map((r) => r.id).sort((a, b) => a - b);
-  const indexBody = JSON.stringify(ids);
-  const indexResult = await put("types/_ids.json", indexBody, {
-    access: "public",
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    contentType: "application/json",
-  });
-  console.log(`  uploaded index → ${indexResult.url}`);
-  return { count: done, baseUrl, indexUrl: indexResult.url };
+  return { count: done, baseUrl };
 }
 
 const sdeZipBytes = await download();
