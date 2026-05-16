@@ -96,9 +96,10 @@ async function readTypesJsonl() {
 
 async function uploadToBlob(rows) {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    throw new Error(
-      "BLOB_READ_WRITE_TOKEN is not set — link a Vercel Blob store to this project (or `vercel env pull` for local).",
+    console.warn(
+      "→ skipping Blob upload: BLOB_READ_WRITE_TOKEN not set. The route will read /sde/types.jsonl from the CDN at runtime (slower cold start).",
     );
+    return { skipped: true };
   }
   console.log(
     `→ uploading ${rows.length} type blobs (concurrency=${UPLOAD_CONCURRENCY})`,
@@ -131,17 +132,7 @@ async function uploadToBlob(rows) {
   console.log(
     `  uploaded ${done} type blobs in ${((Date.now() - start) / 1000).toFixed(1)}s`,
   );
-
-  const ids = rows.map((r) => r.id).sort((a, b) => a - b);
-  const indexBody = JSON.stringify(ids);
-  const indexResult = await put("types/_ids.json", indexBody, {
-    access: "public",
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    contentType: "application/json",
-  });
-  console.log(`  uploaded index → ${indexResult.url}`);
-  return { count: done, baseUrl, indexUrl: indexResult.url };
+  return { count: done, baseUrl };
 }
 
 const sdeZipBytes = await download();
