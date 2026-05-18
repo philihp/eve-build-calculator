@@ -13,6 +13,13 @@ export async function generateStaticParams() {
 
 const LOCAL_TYPES_PATH = join(process.cwd(), "public", "sde", "types.jsonl");
 
+// Namespace blobs by deployment so a redeploy invalidates the cache.
+// Old blobs are abandoned (not deleted) — clean them up out-of-band if
+// storage grows unbounded.
+const CACHE_VERSION = process.env.VERCEL_DEPLOYMENT_ID ?? "dev";
+const blobKey = (typeID: string) =>
+  `types/${CACHE_VERSION}/${typeID}.json`;
+
 let typesCachePromise: Promise<Map<string, string>> | null = null;
 
 function indexLine(map: Map<string, string>, line: string): void {
@@ -55,7 +62,7 @@ function loadTypesMap(): Promise<Map<string, string>> {
 
 async function readFromBlobCache(typeID: string): Promise<string | null> {
   try {
-    const blob = await head(`types/${typeID}.json`);
+    const blob = await head(blobKey(typeID));
     const upstream = await fetch(blob.url);
     return await upstream.text();
   } catch (e) {
@@ -65,15 +72,16 @@ async function readFromBlobCache(typeID: string): Promise<string | null> {
 }
 
 async function writeToBlobCache(typeID: string, line: string): Promise<void> {
+  const key = blobKey(typeID);
   try {
-    await put(`types/${typeID}.json`, line, {
+    await put(key, line, {
       access: "public",
       addRandomSuffix: false,
       allowOverwrite: true,
       contentType: "application/json",
     });
   } catch (e) {
-    console.warn(`failed to cache types/${typeID}.json to blob:`, e);
+    console.warn(`failed to cache ${key} to blob:`, e);
   }
 }
 
