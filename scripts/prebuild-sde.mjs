@@ -1,21 +1,18 @@
 #!/usr/bin/env node
-// Downloads CCP's SDE, extracts blueprints.jsonl + types.jsonl into
-// public/sde/ so the deployed site serves them at /sde/*, and uploads
-// each row of types.jsonl to Vercel Blob as `types/{typeID}.json` so
-// the runtime route handler can serve any typeID on demand.
+// Downloads CCP's SDE and extracts blueprints.jsonl + types.jsonl into
+// public/sde/ so the deployed site serves them at /sde/*. The runtime
+// route handler reads types.jsonl on first miss and writes individual
+// `types/{typeID}.json` blobs to Vercel Blob as a durable cache.
 //
-// Runs as `prebuild` before `next build`. Requires BLOB_READ_WRITE_TOKEN
-// (auto-injected on Vercel when a Blob store is linked to the project).
+// Runs as `prebuild` before `next build`.
 
 import { spawn } from "node:child_process";
-import { createReadStream, createWriteStream } from "node:fs";
+import { createWriteStream } from "node:fs";
 import { mkdir, readdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { createInterface } from "node:readline";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
-import { put } from "@vercel/blob";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const CACHE_DIR = join(ROOT, ".cache");
@@ -24,12 +21,6 @@ const OUT_DIR = join(ROOT, "public", "sde");
 
 const SDE_URL =
   "https://developers.eveonline.com/static-data/eve-online-static-data-latest-jsonl.zip";
-
-// Concurrent blob uploads. Vercel Blob rate-limits aggressively (~1000/min),
-// so keep this low and rely on retry-on-429 below to absorb bursts.
-const UPLOAD_CONCURRENCY = 3;
-const MAX_RETRIES = 8;
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const fmtMB = (bytes) => (bytes / 1024 / 1024).toFixed(1) + " MB";
 
@@ -78,86 +69,6 @@ async function listOutDir() {
   return sized;
 }
 
-async function readTypesJsonl() {
-  const path = join(OUT_DIR, "types.jsonl");
-  const out = [];
-  const rl = createInterface({
-    input: createReadStream(path),
-    crlfDelay: Infinity,
-  });
-  for await (const line of rl) {
-    if (!line.trim()) continue;
-    const obj = JSON.parse(line);
-    const id = obj.typeID ?? obj._key;
-    if (id == null) continue;
-    out.push({ id: Number(id), line });
-  }
-  return out;
-}
-
-async function uploadToBlob(rows) {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    console.warn(
-      "→ skipping Blob upload: BLOB_READ_WRITE_TOKEN not set. The route will read /sde/types.jsonl from the CDN at runtime (slower cold start).",
-    );
-    return { skipped: true };
-  }
-  console.log(
-    `→ uploading ${rows.length} type blobs (concurrency=${UPLOAD_CONCURRENCY})`,
-  );
-  const start = Date.now();
-  let next = 0;
-  let done = 0;
-  let baseUrl = null;
-  const putWithRetry = async (id, line) => {
-    let attempt = 0;
-    while (true) {
-      try {
-        return await put(`types/${id}.json`, line, {
-          access: "public",
-          addRandomSuffix: false,
-          allowOverwrite: true,
-          contentType: "application/json",
-        });
-      } catch (err) {
-        attempt++;
-        const retryAfterSec =
-          typeof err?.retryAfter === "number" ? err.retryAfter : null;
-        const isRateLimit =
-          err?.name === "BlobServiceRateLimited" || retryAfterSec != null;
-        if (!isRateLimit || attempt > MAX_RETRIES) throw err;
-        const waitMs = retryAfterSec
-          ? retryAfterSec * 1000 + 500
-          : Math.min(60000, 1000 * 2 ** attempt);
-        console.log(
-          `    rate-limited on types/${id}.json (attempt ${attempt}/${MAX_RETRIES}), sleeping ${(waitMs / 1000).toFixed(1)}s`,
-        );
-        await sleep(waitMs);
-      }
-    }
-  };
-  const worker = async () => {
-    while (true) {
-      const idx = next++;
-      if (idx >= rows.length) return;
-      const { id, line } = rows[idx];
-      const result = await putWithRetry(id, line);
-      if (!baseUrl) baseUrl = new URL(result.url).origin;
-      done++;
-      if (done % 1000 === 0) {
-        console.log(`    uploaded ${done}/${rows.length}`);
-      }
-    }
-  };
-  await Promise.all(
-    Array.from({ length: UPLOAD_CONCURRENCY }, () => worker()),
-  );
-  console.log(
-    `  uploaded ${done} type blobs in ${((Date.now() - start) / 1000).toFixed(1)}s`,
-  );
-  return { count: done, baseUrl };
-}
-
 const sdeZipBytes = await download();
 await extract();
 const files = await listOutDir();
@@ -165,12 +76,10 @@ console.log(`→ public/sde/ contents (${files.length} entries):`);
 for (const f of files) {
   console.log(`    ${f.name}  ${fmtMB(f.bytes)}  (${f.bytes} bytes)`);
 }
-const rows = await readTypesJsonl();
-const blob = await uploadToBlob(rows);
 await writeFile(
   join(OUT_DIR, ".build-info.json"),
   JSON.stringify(
-    { sdeZipBytes, files, blob, builtAt: new Date().toISOString() },
+    { sdeZipBytes, files, builtAt: new Date().toISOString() },
     null,
     2,
   ),

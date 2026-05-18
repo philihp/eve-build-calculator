@@ -1,11 +1,9 @@
 import { createReadStream, existsSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
-import { BlobNotFoundError, head } from "@vercel/blob";
+import { BlobNotFoundError, head, put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 
-// Prerender nothing at build time; each typeID is rendered on its first
-// request and cached by Next afterwards.
 export const dynamic = "force-static";
 export const dynamicParams = true;
 
@@ -38,8 +36,6 @@ async function buildTypesMap(): Promise<Map<string, string>> {
     for await (const line of rl) indexLine(map, line);
     return map;
   }
-  // No local file (Vercel runtime where /public is on the CDN, not the
-  // function bundle). Fetch the deployment's own static asset.
   const baseUrl = process.env.VERCEL_URL
     ? `https://${process.env.VERCEL_URL}`
     : "http://localhost:3000";
@@ -57,19 +53,41 @@ function loadTypesMap(): Promise<Map<string, string>> {
   return typesCachePromise;
 }
 
+async function readFromBlobCache(typeID: string): Promise<string | null> {
+  try {
+    const blob = await head(`types/${typeID}.json`);
+    const upstream = await fetch(blob.url);
+    return await upstream.text();
+  } catch (e) {
+    if (e instanceof BlobNotFoundError) return null;
+    throw e;
+  }
+}
+
+async function writeToBlobCache(typeID: string, line: string): Promise<void> {
+  try {
+    await put(`types/${typeID}.json`, line, {
+      access: "public",
+      addRandomSuffix: false,
+      allowOverwrite: true,
+      contentType: "application/json",
+    });
+  } catch (e) {
+    console.warn(`failed to cache types/${typeID}.json to blob:`, e);
+  }
+}
+
 async function fetchTypeJson(typeID: string): Promise<string | null> {
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
-    try {
-      const blob = await head(`types/${typeID}.json`);
-      const upstream = await fetch(blob.url);
-      return await upstream.text();
-    } catch (e) {
-      if (e instanceof BlobNotFoundError) return null;
-      throw e;
-    }
+  const hasBlob = !!process.env.BLOB_READ_WRITE_TOKEN;
+  if (hasBlob) {
+    const cached = await readFromBlobCache(typeID);
+    if (cached != null) return cached;
   }
   const map = await loadTypesMap();
-  return map.get(typeID) ?? null;
+  const line = map.get(typeID);
+  if (line == null) return null;
+  if (hasBlob) await writeToBlobCache(typeID, line);
+  return line;
 }
 
 export async function GET(
