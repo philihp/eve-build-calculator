@@ -2,7 +2,7 @@ import { createReadStream, existsSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { BlobNotFoundError, head, put } from "@vercel/blob";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
 export const dynamic = "force-static";
 export const dynamicParams = true;
@@ -86,7 +86,7 @@ async function fetchTypeJson(typeID: string): Promise<string | null> {
   const map = await loadTypesMap();
   const line = map.get(typeID);
   if (line == null) return null;
-  if (hasBlob) await writeToBlobCache(typeID, line);
+  if (hasBlob) after(writeToBlobCache(typeID, line));
   return line;
 }
 
