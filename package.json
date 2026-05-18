@@ -4,28 +4,27 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/fetch-sde-build.mjs",
+    "prebuild": "node scripts/prebuild-sde.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "prebuild": "node scripts/prebuild-sde.mjs",
     "refresh-sde": "node scripts/refresh-sde.mjs"
   },
   "dependencies": {
-    "@vercel/blob": "^1",
-    "next": "16.2.3",
+    "@vercel/blob": "^2.3.3",
+    "next": "^16.2.6",
     "ramda": "^0.32.0",
-    "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
   },
   "devDependencies": {
     "@tsconfig/next": "^2.0.6",
-    "@types/node": "^20",
+    "@types/node": "^25.8.0",
     "@types/ramda": "^0.31.1",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.3",
-    "typescript": "^5"
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.6",
+    "typescript": "^6.0.3"
   }
 }
