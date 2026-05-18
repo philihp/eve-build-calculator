@@ -28,7 +28,7 @@ const SDE_URL =
 // Concurrent blob uploads. Vercel Blob handles ~hundreds of req/s; this
 // keeps prebuild from spending ~all its time waiting on serial PUTs without
 // tipping into rate-limit territory.
-const UPLOAD_CONCURRENCY = 25;
+const UPLOAD_CONCURRENCY = 5;
 
 const fmtMB = (bytes) => (bytes / 1024 / 1024).toFixed(1) + " MB";
 
