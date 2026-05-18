@@ -25,10 +25,11 @@ const OUT_DIR = join(ROOT, "public", "sde");
 const SDE_URL =
   "https://developers.eveonline.com/static-data/eve-online-static-data-latest-jsonl.zip";
 
-// Concurrent blob uploads. Vercel Blob handles ~hundreds of req/s; this
-// keeps prebuild from spending ~all its time waiting on serial PUTs without
-// tipping into rate-limit territory.
-const UPLOAD_CONCURRENCY = 5;
+// Concurrent blob uploads. Vercel Blob rate-limits aggressively (~1000/min),
+// so keep this low and rely on retry-on-429 below to absorb bursts.
+const UPLOAD_CONCURRENCY = 3;
+const MAX_RETRIES = 8;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const fmtMB = (bytes) => (bytes / 1024 / 1024).toFixed(1) + " MB";
 
@@ -108,17 +109,39 @@ async function uploadToBlob(rows) {
   let next = 0;
   let done = 0;
   let baseUrl = null;
+  const putWithRetry = async (id, line) => {
+    let attempt = 0;
+    while (true) {
+      try {
+        return await put(`types/${id}.json`, line, {
+          access: "public",
+          addRandomSuffix: false,
+          allowOverwrite: true,
+          contentType: "application/json",
+        });
+      } catch (err) {
+        attempt++;
+        const retryAfterSec =
+          typeof err?.retryAfter === "number" ? err.retryAfter : null;
+        const isRateLimit =
+          err?.name === "BlobServiceRateLimited" || retryAfterSec != null;
+        if (!isRateLimit || attempt > MAX_RETRIES) throw err;
+        const waitMs = retryAfterSec
+          ? retryAfterSec * 1000 + 500
+          : Math.min(60000, 1000 * 2 ** attempt);
+        console.log(
+          `    rate-limited on types/${id}.json (attempt ${attempt}/${MAX_RETRIES}), sleeping ${(waitMs / 1000).toFixed(1)}s`,
+        );
+        await sleep(waitMs);
+      }
+    }
+  };
   const worker = async () => {
     while (true) {
       const idx = next++;
       if (idx >= rows.length) return;
       const { id, line } = rows[idx];
-      const result = await put(`types/${id}.json`, line, {
-        access: "public",
-        addRandomSuffix: false,
-        allowOverwrite: true,
-        contentType: "application/json",
-      });
+      const result = await putWithRetry(id, line);
       if (!baseUrl) baseUrl = new URL(result.url).origin;
       done++;
       if (done % 1000 === 0) {
