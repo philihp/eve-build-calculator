@@ -1,4 +1,5 @@
 import { createReadStream, existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { BlobNotFoundError, head, put } from "@vercel/blob";
@@ -12,13 +13,46 @@ export async function generateStaticParams() {
 }
 
 const LOCAL_TYPES_PATH = join(process.cwd(), "public", "sde", "types.jsonl");
+const LOCAL_BUILD_INFO_PATH = join(
+  process.cwd(),
+  "public",
+  "sde",
+  ".build-info.json",
+);
 
-// Namespace blobs by deployment so a redeploy invalidates the cache.
-// Old blobs are abandoned (not deleted) — clean them up out-of-band if
-// storage grows unbounded.
-const CACHE_VERSION = process.env.VERCEL_DEPLOYMENT_ID ?? "dev";
-const blobKey = (typeID: string) =>
-  `types/${CACHE_VERSION}/${typeID}.json`;
+// A blob written before this build's `builtAt` is stale. Reusing one key
+// per typeID means stale entries get overwritten on first re-fetch, so
+// storage stays bounded by the number of distinct typeIDs.
+const blobKey = (typeID: string) => `types/${typeID}.json`;
+
+let buildTimePromise: Promise<Date> | null = null;
+
+async function loadBuildTime(): Promise<Date> {
+  try {
+    if (existsSync(LOCAL_BUILD_INFO_PATH)) {
+      const raw = await readFile(LOCAL_BUILD_INFO_PATH, "utf8");
+      const { builtAt } = JSON.parse(raw) as { builtAt?: string };
+      if (builtAt) return new Date(builtAt);
+    } else {
+      const baseUrl = process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : "http://localhost:3000";
+      const res = await fetch(`${baseUrl}/sde/.build-info.json`);
+      if (res.ok) {
+        const { builtAt } = (await res.json()) as { builtAt?: string };
+        if (builtAt) return new Date(builtAt);
+      }
+    }
+  } catch {
+    // fall through
+  }
+  return new Date(0);
+}
+
+function getBuildTime(): Promise<Date> {
+  buildTimePromise ??= loadBuildTime();
+  return buildTimePromise;
+}
 
 let typesCachePromise: Promise<Map<string, string>> | null = null;
 
@@ -62,7 +96,11 @@ function loadTypesMap(): Promise<Map<string, string>> {
 
 async function readFromBlobCache(typeID: string): Promise<string | null> {
   try {
-    const blob = await head(blobKey(typeID));
+    const [blob, buildTime] = await Promise.all([
+      head(blobKey(typeID)),
+      getBuildTime(),
+    ]);
+    if (new Date(blob.uploadedAt) < buildTime) return null;
     const upstream = await fetch(blob.url);
     return await upstream.text();
   } catch (e) {
