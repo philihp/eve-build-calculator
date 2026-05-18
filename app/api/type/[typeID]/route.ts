@@ -1,11 +1,10 @@
 import { createReadStream, existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
-import { BlobNotFoundError, head } from "@vercel/blob";
-import { NextResponse } from "next/server";
+import { BlobNotFoundError, head, put } from "@vercel/blob";
+import { after, NextResponse } from "next/server";
 
-// Prerender nothing at build time; each typeID is rendered on its first
-// request and cached by Next afterwards.
 export const dynamic = "force-static";
 export const dynamicParams = true;
 
@@ -14,6 +13,46 @@ export async function generateStaticParams() {
 }
 
 const LOCAL_TYPES_PATH = join(process.cwd(), "public", "sde", "types.jsonl");
+const LOCAL_BUILD_INFO_PATH = join(
+  process.cwd(),
+  "public",
+  "sde",
+  ".build-info.json",
+);
+
+// A blob written before this build's `builtAt` is stale. Reusing one key
+// per typeID means stale entries get overwritten on first re-fetch, so
+// storage stays bounded by the number of distinct typeIDs.
+const blobKey = (typeID: string) => `types/${typeID}.json`;
+
+let buildTimePromise: Promise<Date> | null = null;
+
+async function loadBuildTime(): Promise<Date> {
+  try {
+    if (existsSync(LOCAL_BUILD_INFO_PATH)) {
+      const raw = await readFile(LOCAL_BUILD_INFO_PATH, "utf8");
+      const { builtAt } = JSON.parse(raw) as { builtAt?: string };
+      if (builtAt) return new Date(builtAt);
+    } else {
+      const baseUrl = process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : "http://localhost:3000";
+      const res = await fetch(`${baseUrl}/sde/.build-info.json`);
+      if (res.ok) {
+        const { builtAt } = (await res.json()) as { builtAt?: string };
+        if (builtAt) return new Date(builtAt);
+      }
+    }
+  } catch {
+    // fall through
+  }
+  return new Date(0);
+}
+
+function getBuildTime(): Promise<Date> {
+  buildTimePromise ??= loadBuildTime();
+  return buildTimePromise;
+}
 
 let typesCachePromise: Promise<Map<string, string>> | null = null;
 
@@ -38,8 +77,6 @@ async function buildTypesMap(): Promise<Map<string, string>> {
     for await (const line of rl) indexLine(map, line);
     return map;
   }
-  // No local file (Vercel runtime where /public is on the CDN, not the
-  // function bundle). Fetch the deployment's own static asset.
   const baseUrl = process.env.VERCEL_URL
     ? `https://${process.env.VERCEL_URL}`
     : "http://localhost:3000";
@@ -57,19 +94,46 @@ function loadTypesMap(): Promise<Map<string, string>> {
   return typesCachePromise;
 }
 
+async function readFromBlobCache(typeID: string): Promise<string | null> {
+  try {
+    const [blob, buildTime] = await Promise.all([
+      head(blobKey(typeID)),
+      getBuildTime(),
+    ]);
+    if (new Date(blob.uploadedAt) < buildTime) return null;
+    const upstream = await fetch(blob.url);
+    return await upstream.text();
+  } catch (e) {
+    if (e instanceof BlobNotFoundError) return null;
+    throw e;
+  }
+}
+
+async function writeToBlobCache(typeID: string, line: string): Promise<void> {
+  const key = blobKey(typeID);
+  try {
+    await put(key, line, {
+      access: "public",
+      addRandomSuffix: false,
+      allowOverwrite: true,
+      contentType: "application/json",
+    });
+  } catch (e) {
+    console.warn(`failed to cache ${key} to blob:`, e);
+  }
+}
+
 async function fetchTypeJson(typeID: string): Promise<string | null> {
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
-    try {
-      const blob = await head(`types/${typeID}.json`);
-      const upstream = await fetch(blob.url);
-      return await upstream.text();
-    } catch (e) {
-      if (e instanceof BlobNotFoundError) return null;
-      throw e;
-    }
+  const hasBlob = !!process.env.BLOB_READ_WRITE_TOKEN;
+  if (hasBlob) {
+    const cached = await readFromBlobCache(typeID);
+    if (cached != null) return cached;
   }
   const map = await loadTypesMap();
-  return map.get(typeID) ?? null;
+  const line = map.get(typeID);
+  if (line == null) return null;
+  if (hasBlob) after(writeToBlobCache(typeID, line));
+  return line;
 }
 
 export async function GET(
