@@ -20,10 +20,16 @@ const LOCAL_BUILD_INFO_PATH = join(
   ".build-info.json",
 );
 
-// A blob written before this build's `builtAt` is stale. Reusing one key
-// per typeID means stale entries get overwritten on first re-fetch, so
-// storage stays bounded by the number of distinct typeIDs.
-const blobKey = (typeID: string) => `types/${typeID}.json`;
+// Group typeIDs by their last two digits so the whole catalogue lives in
+// ~100 blobs instead of one-per-typeID. Vercel Blob caps daily operations,
+// and a per-typeID layout would burn through that on a single crawl.
+const BUCKET_KEY_PREFIX = "types/bucket-";
+
+function bucketFor(typeID: string): string {
+  return typeID.padStart(2, "0").slice(-2);
+}
+
+const bucketBlobKey = (bucket: string) => `${BUCKET_KEY_PREFIX}${bucket}.jsonl`;
 
 let buildTimePromise: Promise<Date> | null = null;
 
@@ -94,46 +100,81 @@ function loadTypesMap(): Promise<Map<string, string>> {
   return typesCachePromise;
 }
 
-async function readFromBlobCache(typeID: string): Promise<string | null> {
+// Per-lambda cache so successive requests in the same bucket reuse one
+// head/fetch pair. `null` means the bucket blob is missing or stale and
+// must be rebuilt from source.
+const bucketCache = new Map<string, Promise<Map<string, string> | null>>();
+
+async function readBucketFromBlob(
+  bucket: string,
+): Promise<Map<string, string> | null> {
   try {
     const [blob, buildTime] = await Promise.all([
-      head(blobKey(typeID)),
+      head(bucketBlobKey(bucket)),
       getBuildTime(),
     ]);
     if (new Date(blob.uploadedAt) < buildTime) return null;
     const upstream = await fetch(blob.url);
-    return await upstream.text();
+    if (!upstream.ok) return null;
+    const text = await upstream.text();
+    const map = new Map<string, string>();
+    for (const line of text.split("\n")) indexLine(map, line);
+    return map;
   } catch (e) {
     if (e instanceof BlobNotFoundError) return null;
     throw e;
   }
 }
 
-async function writeToBlobCache(typeID: string, line: string): Promise<void> {
-  const key = blobKey(typeID);
+async function writeBucketToBlob(
+  bucket: string,
+  members: Map<string, string>,
+): Promise<void> {
+  const key = bucketBlobKey(bucket);
   try {
-    await put(key, line, {
+    await put(key, [...members.values()].join("\n"), {
       access: "public",
       addRandomSuffix: false,
       allowOverwrite: true,
-      contentType: "application/json",
+      contentType: "application/x-ndjson",
     });
   } catch (e) {
     console.warn(`failed to cache ${key} to blob:`, e);
   }
 }
 
+function buildBucketFromSource(
+  fullMap: Map<string, string>,
+  bucket: string,
+): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const [id, line] of fullMap) {
+    if (bucketFor(id) === bucket) out.set(id, line);
+  }
+  return out;
+}
+
 async function fetchTypeJson(typeID: string): Promise<string | null> {
   const hasBlob = !!process.env.BLOB_READ_WRITE_TOKEN;
+  const bucket = bucketFor(typeID);
+
   if (hasBlob) {
-    const cached = await readFromBlobCache(typeID);
-    if (cached != null) return cached;
+    let pending = bucketCache.get(bucket);
+    if (pending === undefined) {
+      pending = readBucketFromBlob(bucket);
+      bucketCache.set(bucket, pending);
+    }
+    const fromBlob = await pending;
+    if (fromBlob != null) return fromBlob.get(typeID) ?? null;
   }
-  const map = await loadTypesMap();
-  const line = map.get(typeID);
-  if (line == null) return null;
-  if (hasBlob) after(writeToBlobCache(typeID, line));
-  return line;
+
+  const fullMap = await loadTypesMap();
+  const members = buildBucketFromSource(fullMap, bucket);
+  if (hasBlob && members.size > 0) {
+    bucketCache.set(bucket, Promise.resolve(members));
+    after(writeBucketToBlob(bucket, members));
+  }
+  return members.get(typeID) ?? null;
 }
 
 export async function GET(
