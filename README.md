@@ -61,6 +61,15 @@ curl -s http://localhost:3000/api/blueprint/671 \
 Returns `404` if no manufacturing blueprint in the bundled SDE produces
 that typeID.
 
+## For LLMs / Agents
+
+If you want an LLM (Claude, ChatGPT, etc.) to use this API:
+
+- [`/openapi.json`](https://eve-build-calculator.philihp.com/openapi.json) — OpenAPI 3.1 spec describing every endpoint.
+- [`/llms.txt`](https://eve-build-calculator.philihp.com/llms.txt) — a short, LLM-friendly index of the API and bundled data files ([llmstxt.org](https://llmstxt.org)).
+
+Point an agent at either URL and it will know how to call `/api/type/{typeID}` and `/api/blueprint/{typeID}` without further explanation.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
