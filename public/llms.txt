@@ -1,0 +1,29 @@
+# EVE Build Calculator
+
+> A small Next.js app that bundles CCP's EVE Online Static Data Export (SDE) and exposes read-only JSON endpoints for looking up items and the blueprints that build them. All endpoints are public, unauthenticated, and CORS-open.
+
+Data source: CCP Games' official SDE (https://developers.eveonline.com/static-data). Records are returned verbatim from `types.jsonl` and `blueprints.jsonl` — field names and shapes come from CCP, not from this app.
+
+## API
+
+- [OpenAPI 3.1 spec](https://eve-build-calculator.philihp.com/openapi.json): Machine-readable description of every endpoint, its parameters, and its response shape.
+- [GET /api/type/{typeID}](https://eve-build-calculator.philihp.com/api/type/671): Returns the raw SDE type record for a given typeID. The item's English name is at `name.en` (or `name` when it's a plain string). Example: `/api/type/671` → Erebus.
+- [GET /api/blueprint/{typeID}](https://eve-build-calculator.philihp.com/api/blueprint/671): Returns the manufacturing blueprint that produces the given product typeID. Inspect `activities.manufacturing.materials` for the bill of materials. Returns 404 if no blueprint in the SDE produces that typeID.
+
+Both routes also accept a `.json` suffix (`/api/type/671.json`) for clients that key off file extensions.
+
+## Bundled SDE files
+
+- [/sde/types.jsonl](https://eve-build-calculator.philihp.com/sde/types.jsonl): The full `types.jsonl` from CCP's SDE. One JSON object per line.
+- [/sde/blueprints.jsonl](https://eve-build-calculator.philihp.com/sde/blueprints.jsonl): The full `blueprints.jsonl` from CCP's SDE. One JSON object per line.
+- [/sde/.build-info.json](https://eve-build-calculator.philihp.com/sde/.build-info.json): Timestamp and file sizes for the bundled SDE at last deploy.
+
+## Docs
+
+- [README](https://github.com/philihp/eve-build-calculator/blob/main/README.md): Project overview and curl/TypeScript examples for the API.
+
+## Common tasks
+
+- "What is typeID N?" — `GET /api/type/N` then read `name.en`.
+- "How do I build typeID N?" — `GET /api/blueprint/N` then read `activities.manufacturing.materials`.
+- "Is typeID N sold on the market?" — `GET /api/type/N` and check for a `marketGroupID` field.

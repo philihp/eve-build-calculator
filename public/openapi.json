@@ -1,0 +1,182 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "EVE Build Calculator API",
+    "version": "1.0.0",
+    "summary": "Read-only lookups against the bundled EVE Online Static Data Export (SDE).",
+    "description": "Public, unauthenticated JSON endpoints for resolving an EVE Online `typeID` to its SDE record, and for finding the manufacturing blueprint that produces a given product `typeID`. Data is sourced from CCP's official SDE (https://developers.eveonline.com/static-data).",
+    "license": {
+      "name": "Data: CCP Games SDE"
+    }
+  },
+  "servers": [
+    { "url": "https://eve-build-calculator.philihp.com", "description": "Production" },
+    { "url": "http://localhost:3000", "description": "Local dev" }
+  ],
+  "paths": {
+    "/api/type/{typeID}": {
+      "get": {
+        "operationId": "getType",
+        "summary": "Look up an SDE type record by typeID",
+        "description": "Returns the raw JSONL row from CCP's SDE `types.jsonl` for the given typeID. Use `name.en` (or `name` when it is a plain string) to read the item's English name.",
+        "parameters": [
+          {
+            "name": "typeID",
+            "in": "path",
+            "required": true,
+            "description": "EVE Online typeID — a positive integer.",
+            "schema": { "type": "integer", "minimum": 1, "example": 671 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Raw SDE type record.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TypeRecord" },
+                "example": {
+                  "typeID": 671,
+                  "name": { "en": "Erebus" },
+                  "groupID": 30,
+                  "published": true
+                }
+              }
+            }
+          },
+          "404": { "description": "typeID is not present in the bundled SDE." }
+        }
+      }
+    },
+    "/api/blueprint/{typeID}": {
+      "get": {
+        "operationId": "getBlueprintForProduct",
+        "summary": "Find the blueprint that builds a given product typeID",
+        "description": "Given the typeID of an item you want to build, returns the raw SDE blueprint record whose `activities.manufacturing.products[].typeID` matches. Inspect `activities.manufacturing.materials` for the bill of materials and `activities.manufacturing.time` for the base build time.",
+        "parameters": [
+          {
+            "name": "typeID",
+            "in": "path",
+            "required": true,
+            "description": "Product typeID — the item you want to build.",
+            "schema": { "type": "integer", "minimum": 1, "example": 671 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Raw SDE blueprint record.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/BlueprintRecord" }
+              }
+            }
+          },
+          "404": {
+            "description": "No manufacturing blueprint in the bundled SDE produces that typeID."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "LocalizedName": {
+        "oneOf": [
+          { "type": "string" },
+          {
+            "type": "object",
+            "properties": {
+              "en": { "type": "string" },
+              "de": { "type": "string" },
+              "fr": { "type": "string" },
+              "ja": { "type": "string" },
+              "ru": { "type": "string" },
+              "zh": { "type": "string" },
+              "ko": { "type": "string" },
+              "es": { "type": "string" },
+              "it": { "type": "string" }
+            },
+            "additionalProperties": { "type": "string" }
+          }
+        ],
+        "description": "CCP returns names either as a plain string or as a per-locale object. Read `.en` when it's an object."
+      },
+      "TypeRecord": {
+        "type": "object",
+        "description": "Raw row from CCP's SDE `types.jsonl`. Only the most commonly used fields are listed; the actual payload contains many more.",
+        "properties": {
+          "typeID": { "type": "integer" },
+          "_key": { "type": "integer", "description": "Alternative key used in some SDE rows when `typeID` is absent." },
+          "name": { "$ref": "#/components/schemas/LocalizedName" },
+          "description": { "$ref": "#/components/schemas/LocalizedName" },
+          "groupID": { "type": "integer" },
+          "marketGroupID": { "type": "integer", "description": "Present when the type is sellable on the in-game market." },
+          "published": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      },
+      "BlueprintProduct": {
+        "type": "object",
+        "properties": {
+          "typeID": { "type": "integer" },
+          "quantity": { "type": "integer" },
+          "probability": { "type": "number" }
+        },
+        "additionalProperties": true
+      },
+      "BlueprintMaterial": {
+        "type": "object",
+        "properties": {
+          "typeID": { "type": "integer" },
+          "quantity": { "type": "integer" }
+        },
+        "additionalProperties": true
+      },
+      "BlueprintActivity": {
+        "type": "object",
+        "properties": {
+          "time": { "type": "integer", "description": "Base seconds." },
+          "materials": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/BlueprintMaterial" }
+          },
+          "products": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/BlueprintProduct" }
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "typeID": { "type": "integer" },
+                "level": { "type": "integer" }
+              }
+            }
+          }
+        },
+        "additionalProperties": true
+      },
+      "BlueprintRecord": {
+        "type": "object",
+        "description": "Raw row from CCP's SDE `blueprints.jsonl`.",
+        "properties": {
+          "blueprintTypeID": { "type": "integer" },
+          "maxProductionLimit": { "type": "integer" },
+          "activities": {
+            "type": "object",
+            "properties": {
+              "manufacturing": { "$ref": "#/components/schemas/BlueprintActivity" },
+              "research_material": { "$ref": "#/components/schemas/BlueprintActivity" },
+              "research_time": { "$ref": "#/components/schemas/BlueprintActivity" },
+              "copying": { "$ref": "#/components/schemas/BlueprintActivity" },
+              "invention": { "$ref": "#/components/schemas/BlueprintActivity" },
+              "reaction": { "$ref": "#/components/schemas/BlueprintActivity" }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  }
+}
