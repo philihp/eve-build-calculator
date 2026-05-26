@@ -20,6 +20,32 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Looking Up an Item Name by typeID
+
+The app exposes a small JSON endpoint that returns the raw SDE record for a
+given `typeID`. The item name lives at `name.en` (CCP's localized form).
+
+```bash
+# Erebus (Titan)
+curl -s http://localhost:3000/api/type/671 | jq -r '.name.en'
+# → Erebus
+```
+
+From JavaScript / TypeScript:
+
+```ts
+async function lookupName(typeID: number): Promise<string | null> {
+  const res = await fetch(`/api/type/${typeID}`);
+  if (!res.ok) return null;
+  const type = (await res.json()) as { name?: { en?: string } | string };
+  return typeof type.name === "string" ? type.name : (type.name?.en ?? null);
+}
+
+await lookupName(671); // "Erebus"
+```
+
+The endpoint returns `404` if the `typeID` is not present in the bundled SDE.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
