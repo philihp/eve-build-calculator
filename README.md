@@ -46,6 +46,21 @@ await lookupName(671); // "Erebus"
 
 The endpoint returns `404` if the `typeID` is not present in the bundled SDE.
 
+## Looking Up a Blueprint by Product typeID
+
+Pass the typeID of an item you want to build and `/api/blueprint/[typeID]`
+returns the raw blueprint record that produces it (materials, products,
+times, etc.). Lookup is by `activities.manufacturing.products[].typeID`.
+
+```bash
+# Find the blueprint that builds an Erebus (Titan, typeID 671)
+curl -s http://localhost:3000/api/blueprint/671 \
+  | jq '.activities.manufacturing.materials'
+```
+
+Returns `404` if no manufacturing blueprint in the bundled SDE produces
+that typeID.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

@@ -41,6 +41,10 @@ const nextConfig: NextConfig = {
         source: "/api/type/:typeID(\\d+).json",
         destination: "/api/type/:typeID",
       },
+      {
+        source: "/api/blueprint/:typeID(\\d+).json",
+        destination: "/api/blueprint/:typeID",
+      },
     ];
   },
 };
