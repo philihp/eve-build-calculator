@@ -12,6 +12,24 @@ const nextConfig: NextConfig = {
           { key: "Content-Disposition", value: "inline" },
         ],
       },
+      {
+        // Public, read-only data — let any origin (e.g. eve-hangar.philihp.com)
+        // query the API and the bundled SDE files from a browser.
+        source: "/api/:path*",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "*" },
+          { key: "Access-Control-Allow-Methods", value: "GET, OPTIONS" },
+          { key: "Access-Control-Allow-Headers", value: "*" },
+        ],
+      },
+      {
+        source: "/sde/:path*",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "*" },
+          { key: "Access-Control-Allow-Methods", value: "GET, OPTIONS" },
+          { key: "Access-Control-Allow-Headers", value: "*" },
+        ],
+      },
     ];
   },
   async rewrites() {
