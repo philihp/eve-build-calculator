@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import * as R from "ramda";
 import {
   BOM,
   COMPONENTS,
@@ -22,16 +23,15 @@ const computeTotals = (
 ): Partial<Record<Component, number>> => {
   type Pair = [Component, number];
   const pairs: Pair[] = entries.flatMap((e) =>
-    (Object.entries(BOM[e.shipType] ?? {}) as Pair[]).map(
+    (R.toPairs(BOM[e.shipType] ?? {}) as Pair[]).map(
       ([component, perShip]) => [component, e.count * perShip] as Pair,
     ),
   );
-  return pairs.reduce<Partial<Record<Component, number>>>(
-    (acc, [component, qty]) => ({
-      ...acc,
-      [component]: (acc[component] ?? 0) + qty,
-    }),
+  return R.reduce(
+    (acc: Partial<Record<Component, number>>, [component, qty]: Pair) =>
+      R.assoc(component, (acc[component] ?? 0) + qty, acc),
     {},
+    pairs,
   );
 };
 
@@ -44,31 +44,28 @@ export default function Home() {
 
   const addEntry = () => {
     const catalog = SHIP_CATALOG[selectedIdx];
-    setEntries((prev) => [
-      ...prev,
-      {
+    setEntries(
+      R.append({
         id: crypto.randomUUID(),
         ...catalog,
         count: 0,
         me: selectedME,
-      },
-    ]);
+      }),
+    );
   };
 
   const updateCount = (id: string, delta: number) =>
-    setEntries((prev) =>
-      prev.map((e) =>
+    setEntries(
+      R.map((e) =>
         e.id === id ? { ...e, count: Math.max(0, e.count + delta) } : e,
       ),
     );
 
   const removeEntry = (id: string) =>
-    setEntries((prev) => prev.filter((e) => e.id !== id));
+    setEntries(R.filter((e: ShipEntry) => e.id !== id));
 
   const totals = computeTotals(entries);
-  const hasAny = (Object.values(totals) as number[]).some(
-    (qty) => (qty ?? 0) > 0,
-  );
+  const hasAny = R.any((qty) => (qty ?? 0) > 0, R.values(totals) as number[]);
 
   return (
     <main>
