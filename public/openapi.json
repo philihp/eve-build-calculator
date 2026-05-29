@@ -75,6 +75,169 @@
           }
         }
       }
+    },
+    "/api/system/{systemID}": {
+      "get": {
+        "operationId": "getSolarSystem",
+        "summary": "Look up a solar system by solarSystemID",
+        "description": "Returns the raw JSONL row from CCP's SDE `mapSolarSystems.jsonl` for the given solarSystemID. The row's `_key` is the solarSystemID. Resolve `constellationID` via /api/constellation/{id}, `regionID` via /api/region/{id}, and `factionID` via the SDE factions data. New Eden systems use ids in the 30000000–30999999 range.",
+        "parameters": [
+          {
+            "name": "systemID",
+            "in": "path",
+            "required": true,
+            "description": "EVE Online solarSystemID — a positive integer.",
+            "schema": { "type": "integer", "minimum": 1, "example": 30000142 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Raw SDE solar system record.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SolarSystemRecord" },
+                "example": {
+                  "_key": 30000142,
+                  "name": { "en": "Jita" },
+                  "constellationID": 20000020,
+                  "regionID": 10000002,
+                  "securityStatus": 0.945913
+                }
+              }
+            }
+          },
+          "404": { "description": "solarSystemID is not present in the bundled SDE." }
+        }
+      }
+    },
+    "/api/constellation/{constellationID}": {
+      "get": {
+        "operationId": "getConstellation",
+        "summary": "Look up a constellation by constellationID",
+        "description": "Returns the raw JSONL row from CCP's SDE `mapConstellations.jsonl`. The row's `_key` is the constellationID. Use `regionID` to walk up to the region and `solarSystemIDs` to enumerate member systems.",
+        "parameters": [
+          {
+            "name": "constellationID",
+            "in": "path",
+            "required": true,
+            "description": "EVE Online constellationID — a positive integer.",
+            "schema": { "type": "integer", "minimum": 1, "example": 20000020 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Raw SDE constellation record.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ConstellationRecord" }
+              }
+            }
+          },
+          "404": { "description": "constellationID is not present in the bundled SDE." }
+        }
+      }
+    },
+    "/api/region/{regionID}": {
+      "get": {
+        "operationId": "getRegion",
+        "summary": "Look up a region by regionID",
+        "description": "Returns the raw JSONL row from CCP's SDE `mapRegions.jsonl`. The row's `_key` is the regionID.",
+        "parameters": [
+          {
+            "name": "regionID",
+            "in": "path",
+            "required": true,
+            "description": "EVE Online regionID — a positive integer.",
+            "schema": { "type": "integer", "minimum": 1, "example": 10000002 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Raw SDE region record.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RegionRecord" }
+              }
+            }
+          },
+          "404": { "description": "regionID is not present in the bundled SDE." }
+        }
+      }
+    },
+    "/api/stargate/{stargateID}": {
+      "get": {
+        "operationId": "getStargate",
+        "summary": "Look up a stargate by stargateID",
+        "description": "Returns the raw JSONL row from CCP's SDE `mapStargates.jsonl`. The row's `_key` is the stargateID; follow its destination to walk system connectivity.",
+        "parameters": [
+          {
+            "name": "stargateID",
+            "in": "path",
+            "required": true,
+            "description": "EVE Online stargateID — a positive integer.",
+            "schema": { "type": "integer", "minimum": 1, "example": 50000056 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Raw SDE stargate record.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/MapItemRecord" } }
+            }
+          },
+          "404": { "description": "stargateID is not present in the bundled SDE." }
+        }
+      }
+    },
+    "/api/star/{starID}": {
+      "get": {
+        "operationId": "getStar",
+        "summary": "Look up a star by starID",
+        "description": "Returns the raw JSONL row from CCP's SDE `mapStars.jsonl`. The row's `_key` is the starID.",
+        "parameters": [
+          {
+            "name": "starID",
+            "in": "path",
+            "required": true,
+            "description": "EVE Online starID — a positive integer.",
+            "schema": { "type": "integer", "minimum": 1, "example": 40000001 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Raw SDE star record.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/MapItemRecord" } }
+            }
+          },
+          "404": { "description": "starID is not present in the bundled SDE." }
+        }
+      }
+    },
+    "/api/station/{stationID}": {
+      "get": {
+        "operationId": "getStation",
+        "summary": "Look up an NPC station by stationID",
+        "description": "Returns the raw JSONL row from CCP's SDE `npcStations.jsonl`. The row's `_key` is the stationID.",
+        "parameters": [
+          {
+            "name": "stationID",
+            "in": "path",
+            "required": true,
+            "description": "EVE Online stationID — a positive integer.",
+            "schema": { "type": "integer", "minimum": 1, "example": 60003760 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Raw SDE NPC station record.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/MapItemRecord" } }
+            }
+          },
+          "404": { "description": "stationID is not present in the bundled SDE." }
+        }
+      }
     }
   },
   "components": {
@@ -174,6 +337,72 @@
             },
             "additionalProperties": true
           }
+        },
+        "additionalProperties": true
+      },
+      "Position": {
+        "type": "object",
+        "description": "Cartesian coordinates (metres) in the New Eden universe.",
+        "properties": {
+          "x": { "type": "number" },
+          "y": { "type": "number" },
+          "z": { "type": "number" }
+        },
+        "additionalProperties": true
+      },
+      "SolarSystemRecord": {
+        "type": "object",
+        "description": "Raw row from CCP's SDE `mapSolarSystems.jsonl`. `_key` is the solarSystemID. Only commonly used fields are listed; the payload contains more.",
+        "properties": {
+          "_key": { "type": "integer", "description": "The solarSystemID." },
+          "name": { "$ref": "#/components/schemas/LocalizedName" },
+          "constellationID": { "type": "integer", "description": "Resolve via /api/constellation/{id}." },
+          "regionID": { "type": "integer", "description": "Resolve via /api/region/{id}." },
+          "factionID": { "type": "integer", "description": "Sovereign faction, when present." },
+          "securityStatus": { "type": "number", "description": "Full-precision security rating (≈ -1.0 … 1.0)." },
+          "securityClass": { "type": "string" },
+          "radius": { "type": "number" },
+          "position": { "$ref": "#/components/schemas/Position" }
+        },
+        "additionalProperties": true
+      },
+      "ConstellationRecord": {
+        "type": "object",
+        "description": "Raw row from CCP's SDE `mapConstellations.jsonl`. `_key` is the constellationID.",
+        "properties": {
+          "_key": { "type": "integer", "description": "The constellationID." },
+          "name": { "$ref": "#/components/schemas/LocalizedName" },
+          "regionID": { "type": "integer", "description": "Resolve via /api/region/{id}." },
+          "solarSystemIDs": {
+            "type": "array",
+            "items": { "type": "integer" },
+            "description": "Member systems; resolve each via /api/system/{id}."
+          },
+          "factionID": { "type": "integer" },
+          "position": { "$ref": "#/components/schemas/Position" }
+        },
+        "additionalProperties": true
+      },
+      "RegionRecord": {
+        "type": "object",
+        "description": "Raw row from CCP's SDE `mapRegions.jsonl`. `_key` is the regionID.",
+        "properties": {
+          "_key": { "type": "integer", "description": "The regionID." },
+          "name": { "$ref": "#/components/schemas/LocalizedName" },
+          "factionID": { "type": "integer" },
+          "position": { "$ref": "#/components/schemas/Position" }
+        },
+        "additionalProperties": true
+      },
+      "MapItemRecord": {
+        "type": "object",
+        "description": "Raw row from one of CCP's SDE celestial/structure files (`mapStargates`, `mapStars`, `npcStations`). `_key` is the item's id. Field set varies by file; common members shown.",
+        "properties": {
+          "_key": { "type": "integer", "description": "The item id (stargateID, planetID, moonID, etc.)." },
+          "name": { "$ref": "#/components/schemas/LocalizedName" },
+          "solarSystemID": { "type": "integer", "description": "Containing system, when present; resolve via /api/system/{id}." },
+          "typeID": { "type": "integer", "description": "SDE type of the item, when present; resolve via /api/type/{id}." },
+          "position": { "$ref": "#/components/schemas/Position" }
         },
         "additionalProperties": true
       }
