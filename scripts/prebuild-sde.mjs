@@ -42,15 +42,13 @@ const SDE_FILES = [
   "blueprints.jsonl",
   "types.jsonl",
   // Map hierarchy + celestials + stations, exposed as /api/{system,constellation,
-  // region,stargate,planet,moon,star,asteroidbelt,station}/{id}.
+  // region,stargate,star,station}/{id}. mapMoons/mapPlanets/mapAsteroidBelts are
+  // intentionally excluded — they're hundreds of MB and blow the deploy budget.
   "mapSolarSystems.jsonl",
   "mapConstellations.jsonl",
   "mapRegions.jsonl",
   "mapStargates.jsonl",
-  "mapPlanets.jsonl",
-  "mapMoons.jsonl",
   "mapStars.jsonl",
-  "mapAsteroidBelts.jsonl",
   "npcStations.jsonl",
 ];
 

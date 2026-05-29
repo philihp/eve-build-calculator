@@ -48,10 +48,7 @@ const nextConfig: NextConfig = {
         ["constellation", "constellationID"],
         ["region", "regionID"],
         ["stargate", "stargateID"],
-        ["planet", "planetID"],
-        ["moon", "moonID"],
         ["star", "starID"],
-        ["asteroidbelt", "beltID"],
         ["station", "stationID"],
       ] as [string, string][]
     ).map(jsonSuffix);

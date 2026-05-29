@@ -189,56 +189,6 @@
         }
       }
     },
-    "/api/planet/{planetID}": {
-      "get": {
-        "operationId": "getPlanet",
-        "summary": "Look up a planet by planetID",
-        "description": "Returns the raw JSONL row from CCP's SDE `mapPlanets.jsonl`. The row's `_key` is the planetID.",
-        "parameters": [
-          {
-            "name": "planetID",
-            "in": "path",
-            "required": true,
-            "description": "EVE Online planetID — a positive integer.",
-            "schema": { "type": "integer", "minimum": 1, "example": 40000003 }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Raw SDE planet record.",
-            "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/MapItemRecord" } }
-            }
-          },
-          "404": { "description": "planetID is not present in the bundled SDE." }
-        }
-      }
-    },
-    "/api/moon/{moonID}": {
-      "get": {
-        "operationId": "getMoon",
-        "summary": "Look up a moon by moonID",
-        "description": "Returns the raw JSONL row from CCP's SDE `mapMoons.jsonl`. The row's `_key` is the moonID.",
-        "parameters": [
-          {
-            "name": "moonID",
-            "in": "path",
-            "required": true,
-            "description": "EVE Online moonID — a positive integer.",
-            "schema": { "type": "integer", "minimum": 1, "example": 40000004 }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Raw SDE moon record.",
-            "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/MapItemRecord" } }
-            }
-          },
-          "404": { "description": "moonID is not present in the bundled SDE." }
-        }
-      }
-    },
     "/api/star/{starID}": {
       "get": {
         "operationId": "getStar",
@@ -261,31 +211,6 @@
             }
           },
           "404": { "description": "starID is not present in the bundled SDE." }
-        }
-      }
-    },
-    "/api/asteroidbelt/{beltID}": {
-      "get": {
-        "operationId": "getAsteroidBelt",
-        "summary": "Look up an asteroid belt by asteroidBeltID",
-        "description": "Returns the raw JSONL row from CCP's SDE `mapAsteroidBelts.jsonl`. The row's `_key` is the asteroidBeltID.",
-        "parameters": [
-          {
-            "name": "beltID",
-            "in": "path",
-            "required": true,
-            "description": "EVE Online asteroidBeltID — a positive integer.",
-            "schema": { "type": "integer", "minimum": 1, "example": 40000005 }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Raw SDE asteroid belt record.",
-            "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/MapItemRecord" } }
-            }
-          },
-          "404": { "description": "asteroidBeltID is not present in the bundled SDE." }
         }
       }
     },
@@ -471,7 +396,7 @@
       },
       "MapItemRecord": {
         "type": "object",
-        "description": "Raw row from one of CCP's SDE celestial/structure files (`mapStargates`, `mapPlanets`, `mapMoons`, `mapStars`, `mapAsteroidBelts`, `npcStations`). `_key` is the item's id. Field set varies by file; common members shown.",
+        "description": "Raw row from one of CCP's SDE celestial/structure files (`mapStargates`, `mapStars`, `npcStations`). `_key` is the item's id. Field set varies by file; common members shown.",
         "properties": {
           "_key": { "type": "integer", "description": "The item id (stargateID, planetID, moonID, etc.)." },
           "name": { "$ref": "#/components/schemas/LocalizedName" },
