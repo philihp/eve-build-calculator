@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// Downloads CCP's SDE and extracts blueprints.jsonl + types.jsonl into
-// public/sde/ so the deployed site serves them at /sde/*. The runtime
-// route handler reads types.jsonl on first miss and writes individual
-// `types/{typeID}.json` blobs to Vercel Blob as a durable cache.
+// Downloads CCP's SDE and extracts the JSONL files listed in SDE_FILES into
+// public/sde/ so the deployed site serves them at /sde/*. The runtime route
+// handlers read each file on first miss and write bucketed blobs to Vercel
+// Blob as a durable cache.
 //
 // Runs as `prebuild` before `next build`.
 
@@ -35,22 +35,32 @@ async function download() {
   return size;
 }
 
+// JSONL files lifted out of the SDE zip into public/sde/. Each one backs a
+// runtime lookup route (see app/api/*/[id]/route.ts) keyed by the row's
+// `_key`/`typeID`.
+const SDE_FILES = [
+  "blueprints.jsonl",
+  "types.jsonl",
+  // Map hierarchy + celestials + stations, exposed as /api/{system,constellation,
+  // region,stargate,planet,moon,star,asteroidbelt,station}/{id}.
+  "mapSolarSystems.jsonl",
+  "mapConstellations.jsonl",
+  "mapRegions.jsonl",
+  "mapStargates.jsonl",
+  "mapPlanets.jsonl",
+  "mapMoons.jsonl",
+  "mapStars.jsonl",
+  "mapAsteroidBelts.jsonl",
+  "npcStations.jsonl",
+];
+
 async function extract() {
   await mkdir(OUT_DIR, { recursive: true });
-  console.log(`→ extracting blueprints.jsonl + types.jsonl → ${OUT_DIR}`);
+  console.log(`→ extracting ${SDE_FILES.length} jsonl files → ${OUT_DIR}`);
   await new Promise((ok, fail) => {
     const p = spawn(
       "unzip",
-      [
-        "-q",
-        "-o",
-        "-j",
-        ZIP_PATH,
-        "*blueprints.jsonl",
-        "*types.jsonl",
-        "-d",
-        OUT_DIR,
-      ],
+      ["-q", "-o", "-j", ZIP_PATH, ...SDE_FILES.map((f) => `*${f}`), "-d", OUT_DIR],
       { stdio: "inherit" },
     );
     p.on("close", (code) =>

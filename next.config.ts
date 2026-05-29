@@ -33,19 +33,28 @@ const nextConfig: NextConfig = {
     ];
   },
   async rewrites() {
-    return [
-      // Next 16 doesn't treat `[typeID].json` as a dynamic segment, so the
-      // route handler lives at /api/type/[typeID] and we map the .json suffix
-      // onto it via rewrite. typeIDs are integers, hence the \d+ constraint.
-      {
-        source: "/api/type/:typeID(\\d+).json",
-        destination: "/api/type/:typeID",
-      },
-      {
-        source: "/api/blueprint/:typeID(\\d+).json",
-        destination: "/api/blueprint/:typeID",
-      },
-    ];
+    // Next 16 doesn't treat `[id].json` as a dynamic segment, so each route
+    // handler lives at /api/<thing>/[id] and we map the .json suffix onto it
+    // via rewrite. All SDE ids are integers, hence the \d+ constraint.
+    const jsonSuffix = ([thing, param]: [string, string]) => ({
+      source: `/api/${thing}/:${param}(\\d+).json`,
+      destination: `/api/${thing}/:${param}`,
+    });
+    return (
+      [
+        ["type", "typeID"],
+        ["blueprint", "typeID"],
+        ["system", "systemID"],
+        ["constellation", "constellationID"],
+        ["region", "regionID"],
+        ["stargate", "stargateID"],
+        ["planet", "planetID"],
+        ["moon", "moonID"],
+        ["star", "starID"],
+        ["asteroidbelt", "beltID"],
+        ["station", "stationID"],
+      ] as [string, string][]
+    ).map(jsonSuffix);
   },
 };
 
