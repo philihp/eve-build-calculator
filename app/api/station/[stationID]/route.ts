@@ -190,14 +190,62 @@ async function fetchJson(id: string): Promise<string | null> {
   return members.get(id) ?? null;
 }
 
+// npcStations rows are pure IDs — the display name ("Jita IV - Moon 4 -
+// Caldari Navy Assembly Plant") is generated, not stored. ESI exposes the
+// finished name, so fold it in from /universe/stations/{id}/. Per-lambda
+// memoised; ESI's own CDN handles the heavier caching.
+const ESI_BASE = "https://esi.evetech.net/latest";
+const nameCache = new Map<string, Promise<string | null>>();
+
+function fetchStationName(id: string): Promise<string | null> {
+  let pending = nameCache.get(id);
+  if (pending === undefined) {
+    pending = (async () => {
+      try {
+        const res = await fetch(
+          `${ESI_BASE}/universe/stations/${id}/?datasource=tranquility`,
+          {
+            headers: {
+              accept: "application/json",
+              "user-agent":
+                "eve-build-calculator (+https://eve-build-calculator.philihp.com)",
+            },
+          },
+        );
+        if (!res.ok) return null;
+        const { name } = (await res.json()) as { name?: string };
+        return name ?? null;
+      } catch {
+        return null;
+      }
+    })();
+    nameCache.set(id, pending);
+  }
+  return pending;
+}
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ stationID: string }> },
 ) {
   const { stationID } = await params;
-  const json = await fetchJson(stationID);
+  const [json, name] = await Promise.all([
+    fetchJson(stationID),
+    fetchStationName(stationID),
+  ]);
   if (!json) return new NextResponse("not found", { status: 404 });
-  return new NextResponse(json, {
+
+  // Merge the ESI name into the SDE row. Best effort: keep the raw row if ESI
+  // didn't resolve a name or the row somehow isn't valid JSON.
+  let body = json;
+  if (name) {
+    try {
+      body = JSON.stringify({ ...JSON.parse(json), name });
+    } catch {
+      // fall back to the unmodified row
+    }
+  }
+  return new NextResponse(body, {
     headers: { "content-type": "application/json; charset=utf-8" },
   });
 }
