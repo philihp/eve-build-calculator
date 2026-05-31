@@ -62,8 +62,14 @@ function indexLine(map: Map<string, string>, line: string): void {
   if (!line.trim()) return;
   try {
     const obj = JSON.parse(line) as { typeID?: number; _key?: number };
-    const id = obj.typeID ?? obj._key;
-    if (id != null) map.set(String(id), line);
+    // Index under every id the row exposes. `_key` is the row's natural id in
+    // every SDE file (stationID, starID, stargateID, solarSystemID, ...), while
+    // `types.jsonl` is looked up by `typeID`. Celestial/station rows ALSO carry
+    // a `typeID` (the structure/star type), so keying solely off `typeID` would
+    // hide them behind their type id — register both so each route resolves by
+    // the id its callers actually pass.
+    if (obj._key != null) map.set(String(obj._key), line);
+    if (obj.typeID != null) map.set(String(obj.typeID), line);
   } catch {
     // ignore malformed rows
   }
