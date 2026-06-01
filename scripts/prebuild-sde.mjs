@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Downloads CCP's SDE and extracts the JSONL files listed in SDE_FILES into
 // public/sde/ so the deployed site serves them at /sde/*. The runtime route
-// handlers read each file on first miss and write bucketed blobs to Vercel
-// Blob as a durable cache.
+// handlers (app/api/*/[id]/route.ts) read each bundled file directly, loading
+// it into an in-memory map once per lambda — the data is fully static, so no
+// external cache is needed.
 //
 // Runs as `prebuild` before `next build`.
 

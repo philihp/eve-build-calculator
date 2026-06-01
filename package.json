@@ -11,7 +11,6 @@
     "refresh-sde": "node scripts/refresh-sde.mjs"
   },
   "dependencies": {
-    "@vercel/blob": "^2.3.3",
     "next": "^16.2.6",
     "ramda": "^0.32.0",
     "react": "^19.2.6",
