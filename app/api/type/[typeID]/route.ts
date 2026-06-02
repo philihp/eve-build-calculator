@@ -2,6 +2,7 @@ import { createReadStream, existsSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { NextResponse } from "next/server";
+import { loadCategoryByGroup } from "../../groups";
 
 export const dynamic = "force-static";
 export const dynamicParams = true;
@@ -70,14 +71,32 @@ async function fetchJson(id: string): Promise<string | null> {
   return map.get(id) ?? null;
 }
 
+// Type rows have a groupID but no categoryID; resolve it via groups.jsonl and
+// add it to the row so callers (e.g. rig-matching filters) don't need a second
+// lookup. categoryID is null when the group is unknown. Returns the raw line
+// untouched if it can't be parsed.
+function withCategoryID(line: string, catByGroup: Map<number, number>): string {
+  try {
+    const obj = JSON.parse(line) as { groupID?: number };
+    const categoryID =
+      obj.groupID != null ? (catByGroup.get(obj.groupID) ?? null) : null;
+    return JSON.stringify({ ...obj, categoryID });
+  } catch {
+    return line;
+  }
+}
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ typeID: string }> },
 ) {
   const { typeID } = await params;
-  const json = await fetchJson(typeID);
+  const [json, catByGroup] = await Promise.all([
+    fetchJson(typeID),
+    loadCategoryByGroup(),
+  ]);
   if (!json) return new NextResponse("not found", { status: 404 });
-  return new NextResponse(json, {
+  return new NextResponse(withCategoryID(json, catByGroup), {
     headers: { "content-type": "application/json; charset=utf-8" },
   });
 }

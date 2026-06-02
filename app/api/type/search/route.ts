@@ -2,6 +2,7 @@ import { createReadStream, existsSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { NextResponse, type NextRequest } from "next/server";
+import { loadCategoryByGroup } from "../../groups";
 
 // Results depend on the `q` query string, so this handler is dynamic — a
 // `force-static` segment would strip the search params and always return the
@@ -18,7 +19,7 @@ function baseUrl(): string {
     : "http://localhost:3000";
 }
 
-type TypeEntry = { typeID: number; name: string };
+type TypeEntry = { typeID: number; name: string; groupID: number | null };
 
 let indexPromise: Promise<TypeEntry[]> | null = null;
 
@@ -37,11 +38,14 @@ function indexLine(out: TypeEntry[], line: string): void {
     const obj = JSON.parse(line) as {
       typeID?: number;
       _key?: number;
+      groupID?: number;
       name?: string | { en?: string };
     };
     const name = pickName(obj);
     const id = obj.typeID ?? obj._key;
-    if (name && id != null) out.push({ typeID: id, name });
+    if (name && id != null) {
+      out.push({ typeID: id, name, groupID: obj.groupID ?? null });
+    }
   } catch {
     // ignore malformed rows
   }
@@ -77,15 +81,27 @@ function loadIndex(): Promise<TypeEntry[]> {
   return indexPromise;
 }
 
-type Match = TypeEntry & { coverage: number };
+type Match = {
+  typeID: number;
+  name: string;
+  categoryID: number | null;
+  coverage: number;
+};
 
 // Rank by how much of the whole name the query covers (query length / name
 // length), descending — so the shortest name containing the query wins. A
 // query of "BCD" yields ABCD (0.75) before ABCDEFG (0.43) before ABCDEFGHIJ
-// (0.3). Ties break alphabetically, then by id, for a stable order.
-function rank(entries: TypeEntry[], query: string, limit: number): Match[] {
+// (0.3). Ties break alphabetically, then by id, for a stable order. Each result
+// is enriched with categoryID (resolved from the type's groupID; null when the
+// group is unknown) for downstream rig-matching filters.
+function rank(
+  entries: TypeEntry[],
+  query: string,
+  limit: number,
+  catByGroup: Map<number, number>,
+): Match[] {
   const needle = query.toLowerCase();
-  const matches: Match[] = [];
+  const matches: (TypeEntry & { coverage: number })[] = [];
   for (const entry of entries) {
     if (entry.name.toLowerCase().includes(needle)) {
       matches.push({ ...entry, coverage: query.length / entry.name.length });
@@ -97,7 +113,12 @@ function rank(entries: TypeEntry[], query: string, limit: number): Match[] {
       a.name.localeCompare(b.name) ||
       a.typeID - b.typeID,
   );
-  return matches.slice(0, limit);
+  return matches.slice(0, limit).map(({ typeID, name, groupID, coverage }) => ({
+    typeID,
+    name,
+    categoryID: groupID != null ? (catByGroup.get(groupID) ?? null) : null,
+    coverage,
+  }));
 }
 
 function parseLimit(raw: string | null): number {
@@ -116,6 +137,9 @@ export async function GET(request: NextRequest) {
     );
   }
   const limit = parseLimit(searchParams.get("limit"));
-  const entries = await loadIndex();
-  return NextResponse.json(rank(entries, query, limit));
+  const [entries, catByGroup] = await Promise.all([
+    loadIndex(),
+    loadCategoryByGroup(),
+  ]);
+  return NextResponse.json(rank(entries, query, limit, catByGroup));
 }

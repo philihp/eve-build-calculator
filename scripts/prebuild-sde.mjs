@@ -42,6 +42,10 @@ async function download() {
 const SDE_FILES = [
   "blueprints.jsonl",
   "types.jsonl",
+  // Type rows carry a groupID but no categoryID. groups.jsonl maps groupID →
+  // categoryID so /api/type/* can enrich each type with its categoryID (used by
+  // downstream rig-matching filters). Small file, no separate lookup route.
+  "groups.jsonl",
   // Map hierarchy + celestials + stations, exposed as /api/{system,constellation,
   // region,stargate,star,station}/{id}. mapMoons/mapPlanets/mapAsteroidBelts are
   // intentionally excluded — they're hundreds of MB and blow the deploy budget.
