@@ -218,7 +218,7 @@
       "get": {
         "operationId": "getStation",
         "summary": "Look up an NPC station by stationID",
-        "description": "Returns the raw JSONL row from CCP's SDE `npcStations.jsonl`. The row's `_key` is the stationID.",
+        "description": "Returns the JSONL row from CCP's SDE `npcStations.jsonl` for the given stationID (the row's `_key`), enriched with: `name` (the human-readable station name from ESI, when available), `solarSystemId` (resolve via /api/system/{id}), and `regionId` (resolved by walking the station's solar system; resolve via /api/region/{id}). All original SDE fields — including CCP's `solarSystemID` — are preserved.",
         "parameters": [
           {
             "name": "stationID",
@@ -230,9 +230,19 @@
         ],
         "responses": {
           "200": {
-            "description": "Raw SDE NPC station record.",
+            "description": "SDE NPC station record enriched with name, solarSystemId, and regionId.",
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/MapItemRecord" } }
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/NpcStationRecord" },
+                "example": {
+                  "_key": 60003760,
+                  "typeID": 1531,
+                  "solarSystemID": 30000142,
+                  "name": "Jita IV - Moon 4 - Caldari Navy Assembly Plant",
+                  "solarSystemId": 30000142,
+                  "regionId": 10000002
+                }
+              }
             }
           },
           "404": { "description": "stationID is not present in the bundled SDE." }
@@ -402,6 +412,20 @@
           "name": { "$ref": "#/components/schemas/LocalizedName" },
           "solarSystemID": { "type": "integer", "description": "Containing system, when present; resolve via /api/system/{id}." },
           "typeID": { "type": "integer", "description": "SDE type of the item, when present; resolve via /api/type/{id}." },
+          "position": { "$ref": "#/components/schemas/Position" }
+        },
+        "additionalProperties": true
+      },
+      "NpcStationRecord": {
+        "type": "object",
+        "description": "Row from CCP's SDE `npcStations.jsonl` (`_key` is the stationID), enriched by this API with `name`, `solarSystemId`, and `regionId`. All original SDE fields are preserved alongside the added ones.",
+        "properties": {
+          "_key": { "type": "integer", "description": "The stationID." },
+          "typeID": { "type": "integer", "description": "Station structure type; resolve via /api/type/{id}." },
+          "solarSystemID": { "type": "integer", "description": "CCP's original field — the containing solar system." },
+          "name": { "type": "string", "description": "Human-readable station name from ESI, when resolvable." },
+          "solarSystemId": { "type": "integer", "description": "Containing solar system; resolve via /api/system/{id}." },
+          "regionId": { "type": "integer", "description": "Containing region (resolved via the station's solar system); resolve via /api/region/{id}." },
           "position": { "$ref": "#/components/schemas/Position" }
         },
         "additionalProperties": true
