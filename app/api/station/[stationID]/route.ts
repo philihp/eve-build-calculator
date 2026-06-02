@@ -75,6 +75,60 @@ async function fetchJson(id: string): Promise<string | null> {
   return map.get(id) ?? null;
 }
 
+// npcStations rows carry `solarSystemID` but not the region — CCP's SDE keeps
+// the map hierarchy normalised. Build a solarSystemID → regionID index from
+// mapSolarSystems so we can surface `regionId` without a second round trip.
+const LOCAL_SYSTEMS_PATH = join(
+  process.cwd(),
+  "public",
+  "sde",
+  "mapSolarSystems.jsonl",
+);
+
+let systemRegionPromise: Promise<Map<number, number>> | null = null;
+
+function indexSystemRegion(map: Map<number, number>, line: string): void {
+  if (!line.trim()) return;
+  try {
+    const obj = JSON.parse(line) as { _key?: number; regionID?: number };
+    if (obj._key != null && obj.regionID != null) {
+      map.set(obj._key, obj.regionID);
+    }
+  } catch {
+    // ignore malformed rows
+  }
+}
+
+async function buildSystemRegionMap(): Promise<Map<number, number>> {
+  const map = new Map<number, number>();
+  if (existsSync(LOCAL_SYSTEMS_PATH)) {
+    const rl = createInterface({
+      input: createReadStream(LOCAL_SYSTEMS_PATH),
+      crlfDelay: Infinity,
+    });
+    for await (const line of rl) indexSystemRegion(map, line);
+    return map;
+  }
+  // Best effort: if the systems file isn't reachable, regionId is simply omitted.
+  const res = await fetch(`${baseUrl()}/sde/mapSolarSystems.jsonl`);
+  if (!res.ok) return map;
+  const text = await res.text();
+  for (const line of text.split("\n")) indexSystemRegion(map, line);
+  return map;
+}
+
+function loadSystemRegionMap(): Promise<Map<number, number>> {
+  systemRegionPromise ??= buildSystemRegionMap();
+  return systemRegionPromise;
+}
+
+async function resolveRegionId(
+  solarSystemId: number,
+): Promise<number | undefined> {
+  const map = await loadSystemRegionMap();
+  return map.get(solarSystemId);
+}
+
 // npcStations rows are pure IDs — the display name ("Jita IV - Moon 4 -
 // Caldari Navy Assembly Plant") is generated, not stored. ESI exposes the
 // finished name, so fold it in from /universe/stations/{id}/. Per-lambda
@@ -120,17 +174,35 @@ export async function GET(
   ]);
   if (!json) return new NextResponse("not found", { status: 404 });
 
-  // Merge the ESI name into the SDE row. Best effort: keep the raw row if ESI
-  // didn't resolve a name or the row somehow isn't valid JSON.
-  let body = json;
-  if (name) {
-    try {
-      body = JSON.stringify({ ...JSON.parse(json), name });
-    } catch {
-      // fall back to the unmodified row
-    }
+  // Enrich the raw SDE row with the ESI-generated name plus normalised
+  // `solarSystemId`/`regionId` so consumers can resolve the system (and region)
+  // via /api/system/{id} and /api/region/{id}. Best effort: if the row somehow
+  // isn't valid JSON, return it untouched (preserves prior behaviour).
+  let row: Record<string, unknown>;
+  try {
+    row = JSON.parse(json) as Record<string, unknown>;
+  } catch {
+    return new NextResponse(json, {
+      headers: { "content-type": "application/json; charset=utf-8" },
+    });
   }
-  return new NextResponse(body, {
+
+  const solarSystemId =
+    typeof row.solarSystemID === "number" ? row.solarSystemID : undefined;
+  // Prefer a denormalised regionID if the row ever carries one; otherwise walk
+  // solarSystemID → mapSolarSystems → regionID.
+  let regionId =
+    typeof row.regionID === "number" ? row.regionID : undefined;
+  if (regionId === undefined && solarSystemId !== undefined) {
+    regionId = await resolveRegionId(solarSystemId);
+  }
+
+  const enriched: Record<string, unknown> = { ...row };
+  if (name) enriched.name = name;
+  if (solarSystemId !== undefined) enriched.solarSystemId = solarSystemId;
+  if (regionId !== undefined) enriched.regionId = regionId;
+
+  return new NextResponse(JSON.stringify(enriched), {
     headers: { "content-type": "application/json; charset=utf-8" },
   });
 }
