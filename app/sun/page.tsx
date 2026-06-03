@@ -8,8 +8,6 @@ import { cell, fmt } from "./solar";
 // `force-dynamic` keeps the location/request data fresh per request.
 export const dynamic = "force-dynamic";
 
-const RAD = Math.PI / 180;
-
 const parseFloatOrNull = (raw: string | null | undefined): number | null => {
   if (raw === undefined || raw === null || raw.trim() === "") return null;
   const n = Number(raw);
@@ -23,22 +21,6 @@ const decodeHeader = (raw: string | null | undefined): string | null => {
   } catch {
     return raw;
   }
-};
-
-// Great-circle distance between two points, in kilometres.
-const haversineKm = (
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number,
-): number => {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * RAD;
-  const dLon = (lon2 - lon1) * RAD;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1 * RAD) * Math.cos(lat2 * RAD) * Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(a));
 };
 
 // Reverse-geocode a coordinate to "city, state, COUNTRY" via OpenStreetMap's
@@ -111,15 +93,10 @@ export default async function SunPage() {
     }
   }
 
-  // For a user-provided location, reverse-geocode it to a city and measure how
-  // far it is from the Vercel IP estimate.
+  // For a user-provided location, reverse-geocode it to a city.
   const devicePlace =
     deviceLat !== null && deviceLon !== null
       ? await reverseGeocode(deviceLat, deviceLon)
-      : null;
-  const deviceDistanceKm =
-    deviceLat !== null && deviceLon !== null && lat !== null && lon !== null
-      ? haversineKm(lat, lon, deviceLat, deviceLon)
       : null;
 
   // Compute the sun from the browser-shared device location when we have it: it
@@ -142,24 +119,28 @@ export default async function SunPage() {
         <h2>Location &amp; Time</h2>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <tbody>
-            <tr>
-              <th style={cell}>Latitude</th>
-              <td style={cell}>
-                {lat !== null ? `${fmt(lat, 4)}°` : <em>unavailable</em>}
-              </td>
-            </tr>
-            <tr>
-              <th style={cell}>Longitude</th>
-              <td style={cell}>
-                {lon !== null ? `${fmt(lon, 4)}°` : <em>unavailable</em>}
-              </td>
-            </tr>
-            <tr>
-              <th style={cell}>Nearest city / state / country</th>
-              <td style={cell}>
-                {place !== "" ? place : <em>unavailable</em>}
-              </td>
-            </tr>
+            {!usingDeviceLocation && (
+              <>
+                <tr>
+                  <th style={cell}>Latitude</th>
+                  <td style={cell}>
+                    {lat !== null ? `${fmt(lat, 4)}°` : <em>unavailable</em>}
+                  </td>
+                </tr>
+                <tr>
+                  <th style={cell}>Longitude</th>
+                  <td style={cell}>
+                    {lon !== null ? `${fmt(lon, 4)}°` : <em>unavailable</em>}
+                  </td>
+                </tr>
+                <tr>
+                  <th style={cell}>Nearest city / state / country</th>
+                  <td style={cell}>
+                    {place !== "" ? place : <em>unavailable</em>}
+                  </td>
+                </tr>
+              </>
+            )}
             <tr>
               <th style={cell}>Device latitude (browser)</th>
               <td style={cell}>
@@ -180,26 +161,11 @@ export default async function SunPage() {
                 )}
               </td>
             </tr>
-            {(deviceLat !== null || deviceLon !== null) && (
-              <>
-                <tr>
-                  <th style={cell}>Device city (reverse lookup)</th>
-                  <td style={cell}>{devicePlace ?? <em>unavailable</em>}</td>
-                </tr>
-                <tr>
-                  <th style={cell}>Distance from Vercel location</th>
-                  <td style={cell}>
-                    {deviceDistanceKm !== null ? (
-                      `${fmt(deviceDistanceKm, 1)} km (${fmt(
-                        deviceDistanceKm * 0.621371,
-                        1,
-                      )} mi)`
-                    ) : (
-                      <em>unavailable</em>
-                    )}
-                  </td>
-                </tr>
-              </>
+            {usingDeviceLocation && (
+              <tr>
+                <th style={cell}>Device city (reverse lookup)</th>
+                <td style={cell}>{devicePlace ?? <em>unavailable</em>}</td>
+              </tr>
             )}
             <tr>
               <th style={cell}>Time (UTC)</th>
