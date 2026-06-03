@@ -4,7 +4,7 @@ const RAD = Math.PI / 180;
 
 export type SunPosition = {
   declination: number; // sun's tilt vs the celestial equator (deg)
-  elevation: number; // apparent angle above the horizon, refraction-corrected (deg)
+  elevation: number; // apparent elevation of the sun's upper limb above the horizon (deg)
   azimuth: number; // compass bearing, clockwise from north (deg)
 };
 
@@ -89,10 +89,23 @@ export const solarPosition = (
     Math.sin(latRad) * Math.sin(declRad) +
     Math.cos(latRad) * Math.cos(declRad) * Math.cos(haRad);
   const zenith = Math.acos(Math.min(1, Math.max(-1, cosZenith))) / RAD;
-  // Apparent elevation: geometric angle plus atmospheric refraction, so the
-  // reported value matches where the sun actually appears in the sky.
+
+  // The sun's apparent angular radius (semidiameter). Its distance varies over
+  // the year, so this does too: NOAA's radius vector R (in AU) from the true
+  // anomaly, then the mean semidiameter of 959.63" scaled by 1/R.
+  const trueAnomaly = M + C;
+  const R = (1.000001018 * (1 - e * e)) / (1 + e * Math.cos(trueAnomaly * RAD));
+  const semidiameter = 959.63 / 3600 / R; // degrees
+
+  // Report the apparent elevation of the sun's *upper limb*: the geometric
+  // angle of the centre, lifted by atmospheric refraction, plus one angular
+  // radius. Sunrise and sunset are defined as the upper limb touching the
+  // horizon, so this reads exactly 0° at those moments.
   const geometricElevation = 90 - zenith;
-  const elevation = geometricElevation + refractionCorrection(geometricElevation);
+  const elevation =
+    geometricElevation +
+    refractionCorrection(geometricElevation) +
+    semidiameter;
 
   const cosAz =
     (Math.sin(latRad) * Math.cos(zenith * RAD) - Math.sin(declRad)) /
