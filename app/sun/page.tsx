@@ -1,6 +1,6 @@
 import { cookies, headers } from "next/headers";
 import DeviceLocationButton from "./device-location-button";
-import { LiveClock, LiveSun, LiveTimeProvider } from "./live";
+import { LiveClock, LiveMoon, LiveSun, LiveTimeProvider } from "./live";
 import { cell, fmt } from "./solar";
 
 // Server component so we can read the Vercel-provided location. The time and
@@ -122,60 +122,38 @@ export default async function SunPage() {
       ? haversineKm(lat, lon, deviceLat, deviceLon)
       : null;
 
+  // When the browser has shared a location, treat it as authoritative: the
+  // sun/moon are computed from it and the Vercel IP estimate is hidden.
+  const usingDevice = deviceLat !== null && deviceLon !== null;
+  const effLat = usingDevice ? deviceLat : lat;
+  const effLon = usingDevice ? deviceLon : lon;
+  const deviceLatStr = deviceLat !== null ? `${fmt(deviceLat, 4)}°` : null;
+  const deviceLonStr = deviceLon !== null ? `${fmt(deviceLon, 4)}°` : null;
+
   return (
     <LiveTimeProvider initialISO={now.toISOString()}>
       <main style={{ padding: "1rem", maxWidth: 720, margin: "0 auto" }}>
-        <h1>Sun Position</h1>
+        <h1>Sun &amp; Moon Position</h1>
         <p>
-          Computed from the Vercel-provided location. The time and sun position
-          update every second.
+          Computed from your device location when shared, otherwise the Vercel
+          IP location. The time and positions update every second.
         </p>
 
         <h2>Location &amp; Time</h2>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <tbody>
-            <tr>
-              <th style={cell}>Latitude</th>
-              <td style={cell}>
-                {lat !== null ? `${fmt(lat, 4)}°` : <em>unavailable</em>}
-              </td>
-            </tr>
-            <tr>
-              <th style={cell}>Longitude</th>
-              <td style={cell}>
-                {lon !== null ? `${fmt(lon, 4)}°` : <em>unavailable</em>}
-              </td>
-            </tr>
-            <tr>
-              <th style={cell}>Nearest city / state / country</th>
-              <td style={cell}>
-                {place !== "" ? place : <em>unavailable</em>}
-              </td>
-            </tr>
-            <tr>
-              <th style={cell}>Device latitude (browser)</th>
-              <td style={cell}>
-                {deviceLat !== null ? (
-                  `${fmt(deviceLat, 4)}°`
-                ) : (
-                  <em>not shared</em>
-                )}
-              </td>
-            </tr>
-            <tr>
-              <th style={cell}>Device longitude (browser)</th>
-              <td style={cell}>
-                {deviceLon !== null ? (
-                  `${fmt(deviceLon, 4)}°`
-                ) : (
-                  <em>not shared</em>
-                )}
-              </td>
-            </tr>
-            {(deviceLat !== null || deviceLon !== null) && (
+            {usingDevice ? (
               <>
                 <tr>
-                  <th style={cell}>Device city (reverse lookup)</th>
+                  <th style={cell}>Device latitude (browser)</th>
+                  <td style={cell}>{deviceLatStr}</td>
+                </tr>
+                <tr>
+                  <th style={cell}>Device longitude (browser)</th>
+                  <td style={cell}>{deviceLonStr}</td>
+                </tr>
+                <tr>
+                  <th style={cell}>City (reverse lookup)</th>
                   <td style={cell}>{devicePlace ?? <em>unavailable</em>}</td>
                 </tr>
                 <tr>
@@ -192,6 +170,27 @@ export default async function SunPage() {
                   </td>
                 </tr>
               </>
+            ) : (
+              <>
+                <tr>
+                  <th style={cell}>Latitude</th>
+                  <td style={cell}>
+                    {lat !== null ? `${fmt(lat, 4)}°` : <em>unavailable</em>}
+                  </td>
+                </tr>
+                <tr>
+                  <th style={cell}>Longitude</th>
+                  <td style={cell}>
+                    {lon !== null ? `${fmt(lon, 4)}°` : <em>unavailable</em>}
+                  </td>
+                </tr>
+                <tr>
+                  <th style={cell}>Nearest city / state / country</th>
+                  <td style={cell}>
+                    {place !== "" ? place : <em>unavailable</em>}
+                  </td>
+                </tr>
+              </>
             )}
             <tr>
               <th style={cell}>Time (UTC)</th>
@@ -203,7 +202,10 @@ export default async function SunPage() {
         </table>
 
         <h2>Sun</h2>
-        <LiveSun lat={lat} lon={lon} />
+        <LiveSun lat={effLat} lon={effLon} />
+
+        <h2>Moon</h2>
+        <LiveMoon lat={effLat} lon={effLon} />
 
         <DeviceLocationButton />
       </main>
