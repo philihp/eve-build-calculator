@@ -1,4 +1,5 @@
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
+import DeviceLocationButton from "./device-location-button";
 
 // Server component so we can read the Vercel-provided location and capture the
 // UTC time at request render. `force-dynamic` ensures every request recomputes
@@ -11,6 +12,15 @@ const parseFloatOrNull = (raw: string | null | undefined): number | null => {
   if (raw === undefined || raw === null || raw.trim() === "") return null;
   const n = Number(raw);
   return Number.isFinite(n) ? n : null;
+};
+
+const decodeHeader = (raw: string | null | undefined): string | null => {
+  if (raw === undefined || raw === null || raw.trim() === "") return null;
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
 };
 
 type SunPosition = {
@@ -132,6 +142,31 @@ export default async function SunPage() {
     parseFloatOrNull(h.get("x-vercel-ip-longitude")) ??
     parseFloatOrNull(process.env.VERCEL_LONGITUDE ?? process.env.LONGITUDE);
 
+  // Vercel's estimate of the place behind that IP. The city is URL-encoded.
+  const place = [
+    decodeHeader(h.get("x-vercel-ip-city")),
+    decodeHeader(h.get("x-vercel-ip-country-region")),
+    decodeHeader(h.get("x-vercel-ip-country")),
+  ]
+    .filter((part): part is string => part !== null)
+    .join(", ");
+
+  // Location the browser shared via the "Use my device location" button,
+  // saved to a cookie so we can compare it against the Vercel IP estimate.
+  const cookieStore = await cookies();
+  let deviceLat: number | null = null;
+  let deviceLon: number | null = null;
+  const deviceRaw = cookieStore.get("device-geo")?.value;
+  if (deviceRaw) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(deviceRaw));
+      deviceLat = parseFloatOrNull(String(parsed.lat));
+      deviceLon = parseFloatOrNull(String(parsed.lon));
+    } catch {
+      // Ignore a malformed cookie.
+    }
+  }
+
   const hasLocation = lat !== null && lon !== null;
   const sun = hasLocation ? solarPosition(now, lat, lon) : null;
 
@@ -159,6 +194,22 @@ export default async function SunPage() {
             </td>
           </tr>
           <tr>
+            <th style={cell}>Device latitude (browser)</th>
+            <td style={cell}>
+              {deviceLat !== null ? `${fmt(deviceLat, 4)}°` : <em>not shared</em>}
+            </td>
+          </tr>
+          <tr>
+            <th style={cell}>Device longitude (browser)</th>
+            <td style={cell}>
+              {deviceLon !== null ? (
+                `${fmt(deviceLon, 4)}°`
+              ) : (
+                <em>not shared</em>
+              )}
+            </td>
+          </tr>
+          <tr>
             <th style={cell}>Time (UTC)</th>
             <td style={cell}>{now.toISOString()}</td>
           </tr>
@@ -169,6 +220,16 @@ export default async function SunPage() {
       {sun ? (
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <tbody>
+            <tr>
+              <th style={cell}>Declination</th>
+              <td style={cell}>{fmt(sun.declination)}°</td>
+            </tr>
+            <tr>
+              <th style={cell}>Nearest city / state / country</th>
+              <td style={cell}>
+                {place !== "" ? place : <em>unavailable</em>}
+              </td>
+            </tr>
             <tr>
               <th style={cell}>Azimuth (angle in the sky)</th>
               <td style={cell}>
@@ -182,10 +243,6 @@ export default async function SunPage() {
                 {sun.elevation < 0 && <em>(below the horizon)</em>}
               </td>
             </tr>
-            <tr>
-              <th style={cell}>Declination</th>
-              <td style={cell}>{fmt(sun.declination)}°</td>
-            </tr>
           </tbody>
         </table>
       ) : (
@@ -197,6 +254,8 @@ export default async function SunPage() {
           variables.
         </p>
       )}
+
+      <DeviceLocationButton />
     </main>
   );
 }
