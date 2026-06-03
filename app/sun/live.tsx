@@ -12,8 +12,13 @@ import { solarPosition, fmt, compass, cell } from "./solar";
 // A single ticking clock shared by every live piece on the page, so the
 // displayed time and the sun position are always computed from the same
 // instant. Seeded with the server's render time so the first client render
-// matches the SSR output (no hydration mismatch), then updated every second.
+// matches the SSR output (no hydration mismatch), then updated every phi
+// (the golden ratio conjugate, ~0.618) seconds.
 const NowContext = createContext<Date>(new Date(0));
+
+// The golden ratio conjugate, (sqrt(5) - 1) / 2 ≈ 0.6180339887.
+const PHI = (Math.sqrt(5) - 1) / 2;
+const REFRESH_MS = PHI * 1000;
 
 export function LiveTimeProvider({
   initialISO,
@@ -24,7 +29,7 @@ export function LiveTimeProvider({
 }) {
   const [now, setNow] = useState(() => new Date(initialISO));
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
+    const id = setInterval(() => setNow(new Date()), REFRESH_MS);
     return () => clearInterval(id);
   }, []);
   return <NowContext.Provider value={now}>{children}</NowContext.Provider>;
