@@ -4,8 +4,30 @@ const RAD = Math.PI / 180;
 
 export type SunPosition = {
   declination: number; // sun's tilt vs the celestial equator (deg)
-  elevation: number; // angle above the horizon (deg)
+  elevation: number; // apparent angle above the horizon, refraction-corrected (deg)
   azimuth: number; // compass bearing, clockwise from north (deg)
+};
+
+// Atmospheric refraction (deg) to add to a geometric solar elevation to get the
+// apparent (observed) elevation. The atmosphere bends sunlight upward, most
+// strongly near the horizon (~0.5°), so the sun stays visible until its
+// geometric centre is roughly 0.83° below the horizon. Same piecewise fit as
+// the NOAA Solar Calculator.
+const refractionCorrection = (elevation: number): number => {
+  if (elevation > 85) return 0;
+  const te = Math.tan(elevation * RAD);
+  let seconds: number;
+  if (elevation > 5) {
+    seconds = 58.1 / te - 0.07 / te ** 3 + 0.000086 / te ** 5;
+  } else if (elevation > -0.575) {
+    seconds =
+      1735 +
+      elevation *
+        (-518.2 + elevation * (103.4 + elevation * (-12.79 + elevation * 0.711)));
+  } else {
+    seconds = -20.772 / te;
+  }
+  return seconds / 3600; // arc-seconds to degrees
 };
 
 // NOAA solar position algorithm.
@@ -67,7 +89,10 @@ export const solarPosition = (
     Math.sin(latRad) * Math.sin(declRad) +
     Math.cos(latRad) * Math.cos(declRad) * Math.cos(haRad);
   const zenith = Math.acos(Math.min(1, Math.max(-1, cosZenith))) / RAD;
-  const elevation = 90 - zenith;
+  // Apparent elevation: geometric angle plus atmospheric refraction, so the
+  // reported value matches where the sun actually appears in the sky.
+  const geometricElevation = 90 - zenith;
+  const elevation = geometricElevation + refractionCorrection(geometricElevation);
 
   const cosAz =
     (Math.sin(latRad) * Math.cos(zenith * RAD) - Math.sin(declRad)) /

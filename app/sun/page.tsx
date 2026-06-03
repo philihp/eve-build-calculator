@@ -122,13 +122,21 @@ export default async function SunPage() {
       ? haversineKm(lat, lon, deviceLat, deviceLon)
       : null;
 
+  // Compute the sun from the browser-shared device location when we have it: it
+  // is the visitor's actual position, whereas the Vercel headers are only an IP
+  // estimate that can be hundreds of kilometres off (enough to flip the sun
+  // above/below the horizon). Fall back to the IP estimate otherwise.
+  const sunLat = deviceLat ?? lat;
+  const sunLon = deviceLon ?? lon;
+  const usingDeviceLocation = deviceLat !== null && deviceLon !== null;
+
   return (
     <LiveTimeProvider initialISO={now.toISOString()}>
       <main style={{ padding: "1rem", maxWidth: 720, margin: "0 auto" }}>
         <h1>Sun Position</h1>
         <p>
-          Computed from the Vercel-provided location. The time and sun position
-          update every second.
+          Computed from your device location when shared, otherwise the
+          Vercel-provided IP estimate. The time and sun position update live.
         </p>
 
         <h2>Location &amp; Time</h2>
@@ -203,7 +211,12 @@ export default async function SunPage() {
         </table>
 
         <h2>Sun</h2>
-        <LiveSun lat={lat} lon={lon} />
+        <p style={{ marginTop: 0, color: "#555", fontSize: "0.9rem" }}>
+          {usingDeviceLocation
+            ? "Using your device location."
+            : "Using the Vercel IP-based location estimate."}
+        </p>
+        <LiveSun lat={sunLat} lon={sunLon} />
 
         <DeviceLocationButton />
       </main>
