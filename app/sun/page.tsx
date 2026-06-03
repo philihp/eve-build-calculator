@@ -1,19 +1,16 @@
-// Server component so we can read the Vercel-provided latitude/longitude
-// environment variables and capture the UTC time at request render.
-// `force-dynamic` ensures every request recomputes the time + sun position
-// instead of serving a build-time cached snapshot.
+import { headers } from "next/headers";
+
+// Server component so we can read the Vercel-provided location and capture the
+// UTC time at request render. `force-dynamic` ensures every request recomputes
+// the time + sun position instead of serving a build-time cached snapshot.
 export const dynamic = "force-dynamic";
 
 const RAD = Math.PI / 180;
 
-const readEnvFloat = (...names: string[]): number | null => {
-  for (const name of names) {
-    const raw = process.env[name];
-    if (raw === undefined || raw.trim() === "") continue;
-    const n = Number(raw);
-    if (Number.isFinite(n)) return n;
-  }
-  return null;
+const parseFloatOrNull = (raw: string | null | undefined): number | null => {
+  if (raw === undefined || raw === null || raw.trim() === "") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
 };
 
 type SunPosition = {
@@ -122,10 +119,18 @@ const cell: React.CSSProperties = {
   borderBottom: "1px solid #bbb",
 };
 
-export default function SunPage() {
+export default async function SunPage() {
   const now = new Date();
-  const lat = readEnvFloat("VERCEL_LATITUDE", "LATITUDE");
-  const lon = readEnvFloat("VERCEL_LONGITUDE", "LONGITUDE");
+
+  // Vercel populates these geolocation headers automatically from the
+  // visitor's IP. Fall back to env vars so it also works in local dev.
+  const h = await headers();
+  const lat =
+    parseFloatOrNull(h.get("x-vercel-ip-latitude")) ??
+    parseFloatOrNull(process.env.VERCEL_LATITUDE ?? process.env.LATITUDE);
+  const lon =
+    parseFloatOrNull(h.get("x-vercel-ip-longitude")) ??
+    parseFloatOrNull(process.env.VERCEL_LONGITUDE ?? process.env.LONGITUDE);
 
   const hasLocation = lat !== null && lon !== null;
   const sun = hasLocation ? solarPosition(now, lat, lon) : null;
@@ -134,8 +139,8 @@ export default function SunPage() {
     <main style={{ padding: "1rem", maxWidth: 720, margin: "0 auto" }}>
       <h1>Sun Position</h1>
       <p>
-        Computed from the Vercel-provided location environment variables and
-        the current UTC time at request.
+        Computed from the Vercel-provided location and the current UTC time at
+        request.
       </p>
 
       <h2>Location &amp; Time</h2>
@@ -144,21 +149,13 @@ export default function SunPage() {
           <tr>
             <th style={cell}>Latitude</th>
             <td style={cell}>
-              {lat !== null ? (
-                `${fmt(lat, 4)}°`
-              ) : (
-                <em>VERCEL_LATITUDE / LATITUDE not set</em>
-              )}
+              {lat !== null ? `${fmt(lat, 4)}°` : <em>unavailable</em>}
             </td>
           </tr>
           <tr>
             <th style={cell}>Longitude</th>
             <td style={cell}>
-              {lon !== null ? (
-                `${fmt(lon, 4)}°`
-              ) : (
-                <em>VERCEL_LONGITUDE / LONGITUDE not set</em>
-              )}
+              {lon !== null ? `${fmt(lon, 4)}°` : <em>unavailable</em>}
             </td>
           </tr>
           <tr>
@@ -193,9 +190,11 @@ export default function SunPage() {
         </table>
       ) : (
         <p>
-          Set the <code>VERCEL_LATITUDE</code> and{" "}
-          <code>VERCEL_LONGITUDE</code> environment variables to compute the
-          sun&apos;s position.
+          No location available. On Vercel this comes from the{" "}
+          <code>x-vercel-ip-latitude</code> /{" "}
+          <code>x-vercel-ip-longitude</code> headers; locally, set the{" "}
+          <code>LATITUDE</code> and <code>LONGITUDE</code> environment
+          variables.
         </p>
       )}
     </main>
