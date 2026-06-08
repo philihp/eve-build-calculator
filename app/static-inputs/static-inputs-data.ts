@@ -34,20 +34,9 @@ async function* readLines(filename: string): AsyncGenerator<string> {
   for (const line of text.split("\n")) yield line;
 }
 
-function pickName(name: unknown): string | null {
-  if (typeof name === "string") return name;
-  if (name && typeof name === "object" && "en" in name) {
-    const en = (name as { en?: unknown }).en;
-    if (typeof en === "string") return en;
-  }
-  return null;
-}
-
 export type InputRow = {
   typeID: number;
-  type: string;
   materialID: number;
-  material: string;
   inputQty: number;
 };
 
@@ -57,10 +46,7 @@ type Material = { typeID: number; quantity: number };
 // materials it consumes. Rows are sorted by the product's TypeID and then by
 // each material's TypeID.
 export async function computeStaticInputs(): Promise<InputRow[]> {
-  // Pass 1: collect (product, materials) from blueprints and gather the set of
-  // typeIDs whose names we'll need, so pass 2 can ignore everything else.
-  const blueprints: { productID: number; materials: Material[] }[] = [];
-  const neededIds = new Set<number>();
+  const rows: InputRow[] = [];
 
   for await (const line of readLines("blueprints.jsonl")) {
     if (!line.trim()) continue;
@@ -77,62 +63,20 @@ export async function computeStaticInputs(): Promise<InputRow[]> {
     const materials = mfg?.materials;
     if (!products?.length || !materials?.length) continue;
 
-    const productID = products[0].typeID;
-    neededIds.add(productID);
-    for (const m of materials) neededIds.add(m.typeID);
-    blueprints.push({ productID, materials });
-  }
-
-  // Pass 2: resolve names for just the typeIDs we referenced.
-  const names = new Map<number, string>();
-  for await (const line of readLines("types.jsonl")) {
-    if (!line.trim()) continue;
-    const obj = JSON.parse(line) as {
-      typeID?: number;
-      _key?: number;
-      name?: unknown;
-    };
-    const id = obj.typeID ?? obj._key;
-    if (id == null || !neededIds.has(id)) continue;
-    const name = pickName(obj.name);
-    if (name) names.set(id, name);
-  }
-
-  const rows: InputRow[] = [];
-  for (const { productID, materials } of blueprints) {
-    const type = names.get(productID);
-    if (type == null) continue;
+    const typeID = products[0].typeID;
     for (const m of materials) {
-      const material = names.get(m.typeID);
-      if (material == null) continue;
-      rows.push({
-        typeID: productID,
-        type,
-        materialID: m.typeID,
-        material,
-        inputQty: m.quantity,
-      });
+      rows.push({ typeID, materialID: m.typeID, inputQty: m.quantity });
     }
   }
 
-  rows.sort(
-    (a, b) => a.typeID - b.typeID || a.materialID - b.materialID,
-  );
+  rows.sort((a, b) => a.typeID - b.typeID || a.materialID - b.materialID);
   return rows;
-}
-
-// RFC 4180 field escaping: quote when the value contains a comma, quote, or
-// newline, doubling any embedded quotes.
-function csvField(value: string): string {
-  return /[",\n\r]/.test(value)
-    ? `"${value.replace(/"/g, '""')}"`
-    : value;
 }
 
 export function toCsv(rows: InputRow[]): string {
   const lines = ["Type,Material,InputQty"];
   for (const r of rows) {
-    lines.push(`${csvField(r.type)},${csvField(r.material)},${r.inputQty}`);
+    lines.push(`${r.typeID},${r.materialID},${r.inputQty}`);
   }
   return lines.join("\n");
 }
