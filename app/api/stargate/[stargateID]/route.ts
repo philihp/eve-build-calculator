@@ -2,7 +2,6 @@ import { createReadStream, existsSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { NextResponse } from "next/server";
-import { loadCategoryByGroup } from "../../groups";
 
 export const dynamic = "force-static";
 export const dynamicParams = true;
@@ -11,8 +10,13 @@ export function generateStaticParams() {
   return [];
 }
 
-// Type catalogue keyed by typeID.
-const LOCAL_SDE_PATH = join(process.cwd(), "public", "sde", "types.jsonl");
+// Stargates keyed by stargateID (SDE `_key`); links a system to its neighbour via destination.
+const LOCAL_SDE_PATH = join(
+  process.cwd(),
+  "public",
+  "sde",
+  "mapStargates.jsonl",
+);
 
 function baseUrl(): string {
   return process.env.VERCEL_URL
@@ -50,10 +54,10 @@ async function buildFullMap(): Promise<Map<string, string>> {
     for await (const line of rl) indexLine(map, line);
     return map;
   }
-  const res = await fetch(`${baseUrl()}/sde/types.jsonl`);
+  const res = await fetch(`${baseUrl()}/sde/mapStargates.jsonl`);
   if (!res.ok) {
     throw new Error(
-      `failed to fetch types.jsonl from ${baseUrl()}: ${res.status}`,
+      `failed to fetch mapStargates.jsonl from ${baseUrl()}: ${res.status}`,
     );
   }
   const text = await res.text();
@@ -71,32 +75,14 @@ async function fetchJson(id: string): Promise<string | null> {
   return map.get(id) ?? null;
 }
 
-// Type rows have a groupID but no categoryID; resolve it via groups.jsonl and
-// add it to the row so callers (e.g. rig-matching filters) don't need a second
-// lookup. categoryID is null when the group is unknown. Returns the raw line
-// untouched if it can't be parsed.
-function withCategoryID(line: string, catByGroup: Map<number, number>): string {
-  try {
-    const obj = JSON.parse(line) as { groupID?: number };
-    const categoryID =
-      obj.groupID != null ? (catByGroup.get(obj.groupID) ?? null) : null;
-    return JSON.stringify({ ...obj, categoryID });
-  } catch {
-    return line;
-  }
-}
-
 export async function GET(
   _req: Request,
-  { params }: { params: Promise<{ typeID: string }> },
+  { params }: { params: Promise<{ stargateID: string }> },
 ) {
-  const { typeID } = await params;
-  const [json, catByGroup] = await Promise.all([
-    fetchJson(typeID),
-    loadCategoryByGroup(),
-  ]);
+  const { stargateID } = await params;
+  const json = await fetchJson(stargateID);
   if (!json) return new NextResponse("not found", { status: 404 });
-  return new NextResponse(withCategoryID(json, catByGroup), {
+  return new NextResponse(json, {
     headers: { "content-type": "application/json; charset=utf-8" },
   });
 }

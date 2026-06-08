@@ -12,18 +12,46 @@ const nextConfig: NextConfig = {
           { key: "Content-Disposition", value: "inline" },
         ],
       },
+      {
+        // Public, read-only data — let any origin (e.g. eve-hangar.philihp.com)
+        // query the API and the bundled SDE files from a browser.
+        source: "/api/:path*",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "*" },
+          { key: "Access-Control-Allow-Methods", value: "GET, OPTIONS" },
+          { key: "Access-Control-Allow-Headers", value: "*" },
+        ],
+      },
+      {
+        source: "/sde/:path*",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "*" },
+          { key: "Access-Control-Allow-Methods", value: "GET, OPTIONS" },
+          { key: "Access-Control-Allow-Headers", value: "*" },
+        ],
+      },
     ];
   },
   async rewrites() {
-    return [
-      // Next 16 doesn't treat `[typeID].json` as a dynamic segment, so the
-      // route handler lives at /api/type/[typeID] and we map the .json suffix
-      // onto it via rewrite. typeIDs are integers, hence the \d+ constraint.
-      {
-        source: "/api/type/:typeID(\\d+).json",
-        destination: "/api/type/:typeID",
-      },
-    ];
+    // Next 16 doesn't treat `[id].json` as a dynamic segment, so each route
+    // handler lives at /api/<thing>/[id] and we map the .json suffix onto it
+    // via rewrite. All SDE ids are integers, hence the \d+ constraint.
+    const jsonSuffix = ([thing, param]: [string, string]) => ({
+      source: `/api/${thing}/:${param}(\\d+).json`,
+      destination: `/api/${thing}/:${param}`,
+    });
+    return (
+      [
+        ["type", "typeID"],
+        ["blueprint", "typeID"],
+        ["system", "systemID"],
+        ["constellation", "constellationID"],
+        ["region", "regionID"],
+        ["stargate", "stargateID"],
+        ["star", "starID"],
+        ["station", "stationID"],
+      ] as [string, string][]
+    ).map(jsonSuffix);
   },
 };
 
