@@ -1,7 +1,6 @@
 import { createReadStream, existsSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
-import { BlobNotFoundError, head } from "@vercel/blob";
 import { NextResponse } from "next/server";
 
 // Prerender nothing at build time; each typeID is rendered on its first
@@ -58,16 +57,6 @@ function loadTypesMap(): Promise<Map<string, string>> {
 }
 
 async function fetchTypeJson(typeID: string): Promise<string | null> {
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
-    try {
-      const blob = await head(`types/${typeID}.json`);
-      const upstream = await fetch(blob.url);
-      return await upstream.text();
-    } catch (e) {
-      if (e instanceof BlobNotFoundError) return null;
-      throw e;
-    }
-  }
   const map = await loadTypesMap();
   return map.get(typeID) ?? null;
 }
