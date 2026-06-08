@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(npx tsc:*)",
-      "mcp__6eae527f-8689-4ced-b0a5-d6cb69d9eb3b__get_access_to_vercel_url"
-    ]
-  }
-}

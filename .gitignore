@@ -45,3 +45,6 @@ next-env.d.ts
 
 # SDE jsonl files served at /sde/* — produced by `npm run prebuild`
 /public/sde/
+
+# dont commit your garbage
+.claude/
