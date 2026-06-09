@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { headers } from "next/headers";
 
@@ -6,15 +6,27 @@ export const dynamic = "force-dynamic";
 
 const REPO_URL = "https://github.com/philihp/edencom-sde";
 
-function readLastUpdated(): string {
-  try {
-    return readFileSync(
-      join(process.cwd(), "public", "sde", "last-updated.txt"),
-      "utf8",
-    ).trim();
-  } catch {
-    return new Date().toISOString();
+async function readLastUpdated(): Promise<string> {
+  const localPath = join(process.cwd(), "public", "sde", "last-updated.txt");
+  if (existsSync(localPath)) {
+    try {
+      return readFileSync(localPath, "utf8").trim();
+    } catch {
+      /* fall through */
+    }
   }
+  const baseUrl = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : "http://localhost:3000";
+  try {
+    const res = await fetch(`${baseUrl}/sde/last-updated.txt`, {
+      cache: "no-store",
+    });
+    if (res.ok) return (await res.text()).trim();
+  } catch {
+    /* fall through */
+  }
+  return new Date().toISOString();
 }
 
 const trimToMinute = (iso: string) => iso.replace(/:\d\d(?:\.\d+)?Z$/, "Z");
@@ -141,7 +153,7 @@ rebuilt nightly and served as plain files.</i></p>
 `;
 
 export default async function Home() {
-  const lastUpdated = trimToMinute(readLastUpdated());
+  const lastUpdated = trimToMinute(await readLastUpdated());
   const sha = process.env.VERCEL_GIT_COMMIT_SHA ?? "0000000";
   const commit = sha.slice(0, 7);
 
