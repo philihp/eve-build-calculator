@@ -9,7 +9,8 @@ export async function GET(
 ) {
   const { mode } = await params;
   const jar = await cookies();
-  if (mode === "light" || mode === "dark") {
+  const current = jar.get("theme")?.value;
+  if ((mode === "light" || mode === "dark") && current !== mode) {
     jar.set("theme", mode, {
       path: "/",
       maxAge: 60 * 60 * 24 * 365,

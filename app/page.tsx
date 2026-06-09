@@ -89,13 +89,14 @@ const DARK: Theme = {
   tableBorder: "#3a3a55",
 };
 
-const toggle = (theme: Theme, isDay: boolean) => {
+const toggle = (theme: Theme, isDay: boolean, stateLabel: string) => {
   const off = `background:${theme.headerBg};color:${theme.fg};border:2px outset ${theme.tableBorder};padding:2px 10px;text-decoration:none;font-family:monospace`;
   const on = `background:${theme.bg};color:${theme.fg};border:2px inset ${theme.tableBorder};padding:2px 10px;text-decoration:none;font-family:monospace;font-weight:bold`;
   return `
-<div style="position:absolute;top:0.5em;right:0.5em">
+<div style="position:absolute;top:0.5em;right:0.5em;font-family:monospace">
   <a href="/theme/light" style="${isDay ? on : off}">Light</a>
   <a href="/theme/dark" style="${isDay ? off : on}">Dark</a>
+  <span style="margin-left:0.5em">${stateLabel}</span>
 </div>
 `;
 };
@@ -106,8 +107,9 @@ const html = (
   theme: Theme,
   modeLabel: string,
   isDay: boolean,
+  stateLabel: string,
 ) => `
-${toggle(theme, isDay)}
+${toggle(theme, isDay, stateLabel)}
 <h1><font color="${theme.accent}">EVE Online Static Data ETL</font></h1>
 <hr>
 <p><i>A static export of EVE Online's Static Data Export (SDE),
@@ -191,7 +193,9 @@ export default async function Home() {
       ? `${sunIsUp ? "day" : "night"} at ${lat.toFixed(2)},${lon.toFixed(2)} (sun ${altitude.toFixed(1)}°)`
       : "default (no edge coords)";
 
-  const body = html(lastUpdated, commit, theme, source, isDay);
+  const stateLabel =
+    cookieMode === "light" || cookieMode === "dark" ? cookieMode : "system";
+  const body = html(lastUpdated, commit, theme, source, isDay, stateLabel);
   const styleTag = `<style>
 html,body{margin:0;background:${theme.bg};color:${theme.fg}}
 a{color:${theme.link}}
