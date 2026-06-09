@@ -39,6 +39,14 @@ rebuilt nightly and served as plain files.</i></p>
     </td>
   </tr>
   <tr>
+    <td><a href="/api/type/search/tritanium">/api/type/search/[query]</a></td>
+    <td>
+      Substring search over type names. Returns up to 100 matches as
+      JSON, e.g. <a href="/api/type/search/tritanium">/api/type/search/tritanium</a>
+      or <a href="/api/type/search/capital%20armor">/api/type/search/capital%20armor</a>.
+    </td>
+  </tr>
+  <tr>
     <td><a href="/sde/types.jsonl">/sde/types.jsonl</a></td>
     <td>
       The full SDE types table as newline-delimited JSON, one type
