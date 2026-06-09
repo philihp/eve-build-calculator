@@ -98,7 +98,6 @@ const toggle = (theme: Theme, stateLabel: string) => {
 <div style="position:absolute;top:0.5em;right:0.5em;font-family:monospace">
   <a href="/theme/light" style="${lightStyle}">Light</a>
   <a href="/theme/dark" style="${darkStyle}">Dark</a>
-  <span style="margin-left:0.5em">${stateLabel}</span>
 </div>
 `;
 };
