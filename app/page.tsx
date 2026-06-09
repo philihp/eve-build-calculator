@@ -89,17 +89,14 @@ const DARK: Theme = {
   tableBorder: "#3a3a55",
 };
 
-const toggle = (theme: Theme, stateLabel: string) => {
-  const off = `background:${theme.headerBg};color:${theme.fg};border:2px outset ${theme.tableBorder};padding:2px 10px;text-decoration:none;font-family:monospace`;
-  const on = `background:${theme.bg};color:${theme.fg};border:2px inset ${theme.tableBorder};padding:2px 10px;text-decoration:none;font-family:monospace;font-weight:bold`;
-  const lightStyle = stateLabel === "light" ? on : off;
-  const darkStyle = stateLabel === "dark" ? on : off;
-  return `
-<div style="position:absolute;top:0.5em;right:0.5em;font-family:monospace">
-  <a href="/theme/light" style="${lightStyle}">Light</a>
-  <a href="/theme/dark" style="${darkStyle}">Dark</a>
-</div>
-`;
+const themeLinks = (stateLabel: string) => {
+  // U+2600 ☀ sun, U+263E ☾ moon; FE0E selects text (non-emoji) presentation.
+  const sun = "☀︎";
+  const moon = "☾︎";
+  const bold = "font-weight:bold;text-decoration:underline";
+  const lightAttr = stateLabel === "light" ? ` style="${bold}"` : "";
+  const darkAttr = stateLabel === "dark" ? ` style="${bold}"` : "";
+  return `<a href="/theme/light"${lightAttr} title="Light">${sun}</a> <a href="/theme/dark"${darkAttr} title="Dark">${moon}</a>`;
 };
 
 const html = (
@@ -109,7 +106,6 @@ const html = (
   modeLabel: string,
   stateLabel: string,
 ) => `
-${toggle(theme, stateLabel)}
 <h1><font color="${theme.accent}">EVE Online Static Data ETL</font></h1>
 <hr>
 <p><i>A static export of EVE Online's Static Data Export (SDE),
@@ -164,7 +160,7 @@ rebuilt nightly and served as plain files.</i></p>
 </p>
 
 <hr>
-<p><font size="2"><i>Made with &hearts; by Sir Cuddles from <a href="${REPO_URL}/commit/${commit}">${commit}</a> @ ${lastUpdated} &mdash; ${modeLabel}</i></font></p>
+<p><font size="2"><i>Made with &hearts; by Sir Cuddles from <a href="${REPO_URL}/commit/${commit}">${commit}</a> @ ${lastUpdated} &mdash; ${modeLabel} &mdash; ${themeLinks(stateLabel)}</i></font></p>
 `;
 
 export default async function Home() {
