@@ -76,7 +76,10 @@ console.log(`→ public/sde/ contents (${files.length} entries):`);
 for (const f of files) {
   console.log(`    ${f.name}  ${fmtMB(f.bytes)}  (${f.bytes} bytes)`);
 }
+const builtAt = new Date().toISOString();
 await writeFile(
   join(OUT_DIR, ".build-info.json"),
-  JSON.stringify({ sdeZipBytes, files, builtAt: new Date().toISOString() }, null, 2),
+  JSON.stringify({ sdeZipBytes, files, builtAt }, null, 2),
 );
+await writeFile(join(OUT_DIR, "last-updated.txt"), builtAt + "\n");
+console.log(`→ wrote ${join(OUT_DIR, "last-updated.txt")} (${builtAt})`);
