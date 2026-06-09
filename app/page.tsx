@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { headers } from "next/headers";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 const REPO_URL = "https://github.com/philihp/edencom-sde";
 
@@ -16,17 +17,79 @@ function readLastUpdated(): string {
   }
 }
 
-const trimToMinute = (iso: string) =>
-  iso.replace(/:\d\d(?:\.\d+)?Z$/, "Z");
+const trimToMinute = (iso: string) => iso.replace(/:\d\d(?:\.\d+)?Z$/, "Z");
 
-const html = (lastUpdated: string, commit: string) => `
-<h1><font color="navy">EVE Online Static Data ETL</font></h1>
+// Sun altitude in degrees at the given UTC instant and lat/lon (degrees).
+// Standard low-precision NOAA-style approximation; good to a fraction of
+// a degree, which is plenty for "is it day or night here".
+function sunAltitudeDeg(date: Date, latDeg: number, lonDeg: number): number {
+  const rad = Math.PI / 180;
+  const jd = date.getTime() / 86400000 + 2440587.5;
+  const n = jd - 2451545.0;
+  const L = ((280.46 + 0.9856474 * n) % 360 + 360) % 360;
+  const g = (((357.528 + 0.9856003 * n) % 360 + 360) % 360) * rad;
+  const lambda =
+    (L + 1.915 * Math.sin(g) + 0.02 * Math.sin(2 * g)) * rad;
+  const epsilon = (23.439 - 0.0000004 * n) * rad;
+  const ra = Math.atan2(
+    Math.cos(epsilon) * Math.sin(lambda),
+    Math.cos(lambda),
+  );
+  const dec = Math.asin(Math.sin(epsilon) * Math.sin(lambda));
+  const gmstHours = ((18.697374558 + 24.06570982441908 * n) % 24 + 24) % 24;
+  const lst = (gmstHours * 15 + lonDeg) * rad;
+  const H = lst - ra;
+  const phi = latDeg * rad;
+  const alt = Math.asin(
+    Math.sin(phi) * Math.sin(dec) +
+      Math.cos(phi) * Math.cos(dec) * Math.cos(H),
+  );
+  return alt / rad;
+}
+
+type Theme = {
+  bg: string;
+  fg: string;
+  link: string;
+  accent: string;
+  rule: string;
+  headerBg: string;
+  tableBorder: string;
+};
+
+const LIGHT: Theme = {
+  bg: "#ffffff",
+  fg: "#000000",
+  link: "#0000ee",
+  accent: "navy",
+  rule: "#808080",
+  headerBg: "#cccccc",
+  tableBorder: "#000000",
+};
+
+const DARK: Theme = {
+  bg: "#0a0a14",
+  fg: "#e0e0e0",
+  link: "#7fdfff",
+  accent: "#ffd966",
+  rule: "#404060",
+  headerBg: "#1f1f33",
+  tableBorder: "#3a3a55",
+};
+
+const html = (
+  lastUpdated: string,
+  commit: string,
+  theme: Theme,
+  modeLabel: string,
+) => `
+<h1><font color="${theme.accent}">EVE Online Static Data ETL</font></h1>
 <hr>
 <p><i>A static export of EVE Online's Static Data Export (SDE),
 rebuilt nightly and served as plain files.</i></p>
 
-<table border="1" cellpadding="6" cellspacing="0">
-  <tr bgcolor="#cccccc">
+<table border="1" cellpadding="6" cellspacing="0" bordercolor="${theme.tableBorder}">
+  <tr bgcolor="${theme.headerBg}">
     <th align="left">Path</th>
     <th align="left">Description</th>
   </tr>
@@ -65,7 +128,7 @@ rebuilt nightly and served as plain files.</i></p>
 
 <br>
 
-<h3><font color="navy">How it's built</font></h3>
+<h3><font color="${theme.accent}">How it's built</font></h3>
 <p>
   This site is rebuilt nightly. Each build pulls the latest SDE from
   CCP's servers, normalizes the tables, and pre-renders every path
@@ -74,12 +137,38 @@ rebuilt nightly and served as plain files.</i></p>
 </p>
 
 <hr>
-<p><font size="2"><i>Made with &hearts; by Sir Cuddles from <a href="${REPO_URL}/commit/${commit}">${commit}</a> @ ${lastUpdated}</i></font></p>
+<p><font size="2"><i>Made with &hearts; by Sir Cuddles from <a href="${REPO_URL}/commit/${commit}">${commit}</a> @ ${lastUpdated} &mdash; ${modeLabel}</i></font></p>
 `;
 
-export default function Home() {
+export default async function Home() {
   const lastUpdated = trimToMinute(readLastUpdated());
   const sha = process.env.VERCEL_GIT_COMMIT_SHA ?? "0000000";
   const commit = sha.slice(0, 7);
-  return <div dangerouslySetInnerHTML={{ __html: html(lastUpdated, commit) }} />;
+
+  const h = await headers();
+  const lat = Number(h.get("x-vercel-ip-latitude"));
+  const lon = Number(h.get("x-vercel-ip-longitude"));
+  const haveCoords = Number.isFinite(lat) && Number.isFinite(lon);
+
+  const altitude = haveCoords ? sunAltitudeDeg(new Date(), lat, lon) : NaN;
+  const isDay = Number.isFinite(altitude) ? altitude > 0 : true;
+  const theme = isDay ? LIGHT : DARK;
+  const modeLabel = haveCoords
+    ? `${isDay ? "day" : "night"} at ${lat.toFixed(2)},${lon.toFixed(2)} (sun ${altitude.toFixed(1)}°)`
+    : "day (no edge coords)";
+
+  const body = html(lastUpdated, commit, theme, modeLabel);
+  const styleTag = `<style>a{color:${theme.link}} hr{border:0;border-top:1px solid ${theme.rule}}</style>`;
+
+  return (
+    <div
+      style={{
+        background: theme.bg,
+        color: theme.fg,
+        minHeight: "100vh",
+        padding: "1em",
+      }}
+      dangerouslySetInnerHTML={{ __html: styleTag + body }}
+    />
+  );
 }
