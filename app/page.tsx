@@ -1,6 +1,20 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 export const dynamic = "force-static";
 
 const REPO_URL = "https://github.com/philihp/edencom-sde";
+
+function readLastUpdated(): string {
+  try {
+    return readFileSync(
+      join(process.cwd(), "public", "sde", "last-updated.txt"),
+      "utf8",
+    ).trim();
+  } catch {
+    return new Date().toISOString().replace(/\.\d+Z$/, "Z");
+  }
+}
 
 const html = (lastUpdated: string, commit: string) => `
 <h1><font color="navy">CapitalBOM SDE Browser</font></h1>
@@ -59,7 +73,7 @@ rebuilt nightly and served as plain files.</i></p>
 `;
 
 export default function Home() {
-  const lastUpdated = new Date().toISOString().replace(/\.\d+Z$/, "Z");
+  const lastUpdated = readLastUpdated();
   const sha = process.env.VERCEL_GIT_COMMIT_SHA ?? "0000000";
   const commit = sha.slice(0, 7);
   return <div dangerouslySetInnerHTML={{ __html: html(lastUpdated, commit) }} />;
