@@ -89,13 +89,15 @@ const DARK: Theme = {
   tableBorder: "#3a3a55",
 };
 
-const toggle = (theme: Theme, isDay: boolean, stateLabel: string) => {
+const toggle = (theme: Theme, stateLabel: string) => {
   const off = `background:${theme.headerBg};color:${theme.fg};border:2px outset ${theme.tableBorder};padding:2px 10px;text-decoration:none;font-family:monospace`;
   const on = `background:${theme.bg};color:${theme.fg};border:2px inset ${theme.tableBorder};padding:2px 10px;text-decoration:none;font-family:monospace;font-weight:bold`;
+  const lightStyle = stateLabel === "light" ? on : off;
+  const darkStyle = stateLabel === "dark" ? on : off;
   return `
 <div style="position:absolute;top:0.5em;right:0.5em;font-family:monospace">
-  <a href="/theme/light" style="${isDay ? on : off}">Light</a>
-  <a href="/theme/dark" style="${isDay ? off : on}">Dark</a>
+  <a href="/theme/light" style="${lightStyle}">Light</a>
+  <a href="/theme/dark" style="${darkStyle}">Dark</a>
   <span style="margin-left:0.5em">${stateLabel}</span>
 </div>
 `;
@@ -106,10 +108,9 @@ const html = (
   commit: string,
   theme: Theme,
   modeLabel: string,
-  isDay: boolean,
   stateLabel: string,
 ) => `
-${toggle(theme, isDay, stateLabel)}
+${toggle(theme, stateLabel)}
 <h1><font color="${theme.accent}">EVE Online Static Data ETL</font></h1>
 <hr>
 <p><i>A static export of EVE Online's Static Data Export (SDE),
@@ -195,7 +196,7 @@ export default async function Home() {
 
   const stateLabel =
     cookieMode === "light" || cookieMode === "dark" ? cookieMode : "system";
-  const body = html(lastUpdated, commit, theme, source, isDay, stateLabel);
+  const body = html(lastUpdated, commit, theme, source, stateLabel);
   const styleTag = `<style>
 html,body{margin:0;background:${theme.bg};color:${theme.fg}}
 a{color:${theme.link}}
