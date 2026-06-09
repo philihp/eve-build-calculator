@@ -12,9 +12,12 @@ function readLastUpdated(): string {
       "utf8",
     ).trim();
   } catch {
-    return new Date().toISOString().replace(/\.\d+Z$/, "Z");
+    return new Date().toISOString();
   }
 }
+
+const trimToMinute = (iso: string) =>
+  iso.replace(/:\d\d(?:\.\d+)?Z$/, "Z");
 
 const html = (lastUpdated: string, commit: string) => `
 <h1><font color="navy">CapitalBOM SDE Browser</font></h1>
@@ -69,11 +72,11 @@ rebuilt nightly and served as plain files.</i></p>
 </p>
 
 <hr>
-<p><font size="2"><i>Made with &hearts; by Sir Cuddles - <a href="${REPO_URL}/commit/${commit}">${commit}</a> - ${lastUpdated}</i></font></p>
+<p><font size="2"><i>Made with &hearts; by Sir Cuddles from <a href="${REPO_URL}/commit/${commit}">${commit}</a> @ ${lastUpdated}</i></font></p>
 `;
 
 export default function Home() {
-  const lastUpdated = readLastUpdated();
+  const lastUpdated = trimToMinute(readLastUpdated());
   const sha = process.env.VERCEL_GIT_COMMIT_SHA ?? "0000000";
   const commit = sha.slice(0, 7);
   return <div dangerouslySetInnerHTML={{ __html: html(lastUpdated, commit) }} />;
