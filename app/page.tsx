@@ -1,6 +1,6 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 export const dynamic = "force-dynamic";
 
@@ -89,12 +89,25 @@ const DARK: Theme = {
   tableBorder: "#3a3a55",
 };
 
+const toggle = (theme: Theme, isDay: boolean) => {
+  const off = `background:${theme.headerBg};color:${theme.fg};border:2px outset ${theme.tableBorder};padding:2px 10px;text-decoration:none;font-family:monospace`;
+  const on = `background:${theme.bg};color:${theme.fg};border:2px inset ${theme.tableBorder};padding:2px 10px;text-decoration:none;font-family:monospace;font-weight:bold`;
+  return `
+<div style="position:absolute;top:0.5em;right:0.5em">
+  <a href="/theme/light" style="${isDay ? on : off}">Light</a>
+  <a href="/theme/dark" style="${isDay ? off : on}">Dark</a>
+</div>
+`;
+};
+
 const html = (
   lastUpdated: string,
   commit: string,
   theme: Theme,
   modeLabel: string,
+  isDay: boolean,
 ) => `
+${toggle(theme, isDay)}
 <h1><font color="${theme.accent}">EVE Online Static Data ETL</font></h1>
 <hr>
 <p><i>A static export of EVE Online's Static Data Export (SDE),
@@ -163,14 +176,27 @@ export default async function Home() {
   const haveCoords = Number.isFinite(lat) && Number.isFinite(lon);
 
   const altitude = haveCoords ? sunAltitudeDeg(new Date(), lat, lon) : NaN;
-  const isDay = Number.isFinite(altitude) ? altitude > 0 : true;
-  const theme = isDay ? LIGHT : DARK;
-  const modeLabel = haveCoords
-    ? `${isDay ? "day" : "night"} at ${lat.toFixed(2)},${lon.toFixed(2)} (sun ${altitude.toFixed(1)}°)`
-    : "day (no edge coords)";
+  const sunIsUp = Number.isFinite(altitude) ? altitude > 0 : true;
 
-  const body = html(lastUpdated, commit, theme, modeLabel);
-  const styleTag = `<style>a{color:${theme.link}} hr{border:0;border-top:1px solid ${theme.rule}}</style>`;
+  const cookieJar = await cookies();
+  const cookieMode = cookieJar.get("theme")?.value;
+  const isDay =
+    cookieMode === "light" ? true : cookieMode === "dark" ? false : sunIsUp;
+  const theme = isDay ? LIGHT : DARK;
+
+  const source =
+    cookieMode === "light" || cookieMode === "dark"
+      ? `cookie (${cookieMode})`
+      : haveCoords
+      ? `${sunIsUp ? "day" : "night"} at ${lat.toFixed(2)},${lon.toFixed(2)} (sun ${altitude.toFixed(1)}°)`
+      : "default (no edge coords)";
+
+  const body = html(lastUpdated, commit, theme, source, isDay);
+  const styleTag = `<style>
+html,body{margin:0;background:${theme.bg};color:${theme.fg}}
+a{color:${theme.link}}
+hr{border:0;border-top:1px solid ${theme.rule}}
+</style>`;
 
   return (
     <div
@@ -179,6 +205,7 @@ export default async function Home() {
         color: theme.fg,
         minHeight: "100vh",
         padding: "1em",
+        position: "relative",
       }}
       dangerouslySetInnerHTML={{ __html: styleTag + body }}
     />
