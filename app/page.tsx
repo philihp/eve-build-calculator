@@ -31,19 +31,11 @@ rebuilt nightly and served as plain files.</i></p>
     <th align="left">Description</th>
   </tr>
   <tr>
-    <td><a href="/api/type/34">/api/type/[typeID]</a></td>
+    <td><a href="/api/type/34.json">/api/type/[typeID].json</a></td>
     <td>
       Returns the raw JSON record for a single SDE type, keyed by
-      typeID (e.g. <a href="/api/type/34">/api/type/34</a> for
-      Tritanium). Served as <tt>application/json</tt>.
-    </td>
-  </tr>
-  <tr>
-    <td><a href="/api/type/search/tritanium">/api/type/search/[query]</a></td>
-    <td>
-      Substring search over type names. Returns up to 100 matches as
-      JSON, e.g. <a href="/api/type/search/tritanium">/api/type/search/tritanium</a>
-      or <a href="/api/type/search/capital%20armor">/api/type/search/capital%20armor</a>.
+      typeID (e.g. <a href="/api/type/34.json">/api/type/34.json</a>
+      for Tritanium). The <tt>.json</tt> suffix is optional.
     </td>
   </tr>
   <tr>
@@ -54,17 +46,19 @@ rebuilt nightly and served as plain files.</i></p>
     </td>
   </tr>
   <tr>
-    <td><a href="/static-inputs">/static-inputs</a></td>
+    <td><a href="/static-inputs.csv">/static-inputs[.csv]</a></td>
     <td>
       CSV of the input materials for every blueprint in the SDE.
-      Compatible with Google Sheets <tt>IMPORTDATA</tt>.
+      Compatible with Google Sheets <tt>IMPORTDATA</tt>. The
+      <tt>.csv</tt> suffix is optional.
     </td>
   </tr>
   <tr>
-    <td><a href="/static-outputs">/static-outputs</a></td>
+    <td><a href="/static-outputs.csv">/static-outputs[.csv]</a></td>
     <td>
       CSV of the output products of every blueprint in the SDE.
-      Compatible with Google Sheets <tt>IMPORTDATA</tt>.
+      Compatible with Google Sheets <tt>IMPORTDATA</tt>. The
+      <tt>.csv</tt> suffix is optional.
     </td>
   </tr>
 </table>
