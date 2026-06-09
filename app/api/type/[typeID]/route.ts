@@ -66,7 +66,8 @@ export async function GET(
   { params }: { params: Promise<{ typeID: string }> },
 ) {
   const { typeID } = await params;
-  const json = await fetchTypeJson(typeID);
+  const key = typeID.endsWith(".json") ? typeID.slice(0, -5) : typeID;
+  const json = await fetchTypeJson(key);
   if (!json) return new NextResponse("not found", { status: 404 });
   return new NextResponse(json, {
     headers: { "content-type": "application/json; charset=utf-8" },
