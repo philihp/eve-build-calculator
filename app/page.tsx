@@ -69,7 +69,7 @@ rebuilt nightly and served as plain files.</i></p>
 </p>
 
 <hr>
-<p><font size="2"><i>Made with &hearts; by <a href="${REPO_URL}">Sir Cuddles</a> - ${commit} - ${lastUpdated}</i></font></p>
+<p><font size="2"><i>Made with &hearts; by Sir Cuddles - <a href="${REPO_URL}/commit/${commit}">${commit}</a> - ${lastUpdated}</i></font></p>
 `;
 
 export default function Home() {
