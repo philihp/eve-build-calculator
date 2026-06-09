@@ -1,163 +1,64 @@
-"use client";
+export const dynamic = "force-static";
 
-import { useState } from "react";
-import * as R from "ramda";
-import {
-  BOM,
-  COMPONENTS,
-  SHIP_CATALOG,
-  type CatalogEntry,
-  type Component,
-} from "./sde-data";
+const html = (lastUpdated: string) => `
+<center>
+  <h1><font color="navy">CapitalBOM SDE Browser</font></h1>
+  <hr width="80%">
+  <p><i>A static export of EVE Online's Static Data Export (SDE),
+  rebuilt nightly and served as plain files.</i></p>
 
-// ── Ship Entry (list state) ────────────────────────────────────────────────────
+  <table border="1" cellpadding="6" cellspacing="0" width="80%">
+    <tr bgcolor="#cccccc">
+      <th align="left">Path</th>
+      <th align="left">Description</th>
+    </tr>
+    <tr>
+      <td><a href="/api/type/34">/api/type/[typeID]</a></td>
+      <td align="left">
+        Returns the raw JSON record for a single SDE type, keyed by
+        typeID (e.g. <a href="/api/type/34">/api/type/34</a> for
+        Tritanium). Served as <tt>application/json</tt>.
+      </td>
+    </tr>
+    <tr>
+      <td><a href="/sde/types.jsonl">/sde/types.jsonl</a></td>
+      <td align="left">
+        The full SDE types table as newline-delimited JSON, one type
+        per line. Useful for bulk imports.
+      </td>
+    </tr>
+    <tr>
+      <td><a href="/static-inputs">/static-inputs</a></td>
+      <td align="left">
+        CSV of the input materials for every blueprint in the SDE.
+        Compatible with Google Sheets <tt>IMPORTDATA</tt>.
+      </td>
+    </tr>
+    <tr>
+      <td><a href="/static-outputs">/static-outputs</a></td>
+      <td align="left">
+        CSV of the output products of every blueprint in the SDE.
+        Compatible with Google Sheets <tt>IMPORTDATA</tt>.
+      </td>
+    </tr>
+  </table>
 
-type ShipEntry = CatalogEntry & { id: string; count: number; me: number };
+  <br>
 
-const ME_LEVELS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+  <h3><font color="navy">How it's built</font></h3>
+  <p>
+    This site is rebuilt nightly. Each build pulls the latest SDE from
+    CCP's servers, normalizes the tables, and pre-renders every path
+    above as a static file. No database, no runtime queries &mdash;
+    just files on a CDN.
+  </p>
 
-// ── Pure computation ───────────────────────────────────────────────────────────
-
-const computeTotals = (
-  entries: ShipEntry[],
-): Partial<Record<Component, number>> => {
-  type Pair = [Component, number];
-  const pairs: Pair[] = entries.flatMap((e) =>
-    (R.toPairs(BOM[e.shipType] ?? {}) as Pair[]).map(
-      ([component, perShip]) => [component, e.count * perShip] as Pair,
-    ),
-  );
-  return R.reduce(
-    (acc: Partial<Record<Component, number>>, [component, qty]: Pair) =>
-      R.assoc(component, (acc[component] ?? 0) + qty, acc),
-    {},
-    pairs,
-  );
-};
-
-// ── Component ─────────────────────────────────────────────────────────────────
+  <hr width="80%">
+  <p><font size="2"><i>Last updated: ${lastUpdated}</i></font></p>
+</center>
+`;
 
 export default function Home() {
-  const [entries, setEntries] = useState<ShipEntry[]>([]);
-  const [selectedIdx, setSelectedIdx] = useState(0);
-  const [selectedME, setSelectedME] = useState(0);
-
-  const addEntry = () => {
-    const catalog = SHIP_CATALOG[selectedIdx];
-    setEntries(
-      R.append({
-        id: crypto.randomUUID(),
-        ...catalog,
-        count: 0,
-        me: selectedME,
-      }),
-    );
-  };
-
-  const updateCount = (id: string, delta: number) =>
-    setEntries(
-      R.map((e) =>
-        e.id === id ? { ...e, count: Math.max(0, e.count + delta) } : e,
-      ),
-    );
-
-  const removeEntry = (id: string) =>
-    setEntries(R.filter((e: ShipEntry) => e.id !== id));
-
-  const totals = computeTotals(entries);
-  const hasAny = R.any((qty) => (qty ?? 0) > 0, R.values(totals) as number[]);
-
-  return (
-    <main>
-      {/* ── Add Ship ── */}
-      <div>
-        <select
-          value={selectedIdx}
-          onChange={(e) => setSelectedIdx(Number(e.target.value))}
-        >
-          {SHIP_CATALOG.map((ship, i) => (
-            <option key={i} value={i}>
-              {ship.name} ({ship.typeId}) — {ship.shipType}
-            </option>
-          ))}
-        </select>
-        <label>
-          ME{" "}
-          <select
-            value={selectedME}
-            onChange={(e) => setSelectedME(Number(e.target.value))}
-          >
-            {ME_LEVELS.map((me) => (
-              <option key={me} value={me}>
-                {me}%
-              </option>
-            ))}
-          </select>
-        </label>
-        <button onClick={addEntry}>Add</button>
-      </div>
-
-      {/* ── Ship List ── */}
-      {entries.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th>Ship</th>
-              <th>Count</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map((entry) => (
-              <tr key={entry.id}>
-                <td>
-                  {entry.name} ({entry.typeId})
-                </td>
-                <td>{entry.count}</td>
-                <td>
-                  <button onClick={() => updateCount(entry.id, 1)}>+</button>
-                  <button
-                    onClick={() => updateCount(entry.id, -1)}
-                    disabled={entry.count === 0}
-                  >
-                    −
-                  </button>
-                  <button
-                    onClick={() => removeEntry(entry.id)}
-                    disabled={entry.count > 0}
-                  >
-                    ×
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      <hr />
-
-      {/* ── Output ── */}
-      {hasAny ? (
-        <table>
-          <thead>
-            <tr>
-              <th>Component</th>
-              <th>Quantity</th>
-            </tr>
-          </thead>
-          <tbody>
-            {COMPONENTS.filter((c) => (totals[c] ?? 0) > 0).map((component) => (
-              <tr key={component}>
-                <td>{component}</td>
-                <td>{totals[component]!.toLocaleString()}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <p>Add ships above to see component requirements.</p>
-      )}
-    </main>
-  );
+  const lastUpdated = new Date().toUTCString();
+  return <div dangerouslySetInnerHTML={{ __html: html(lastUpdated) }} />;
 }
