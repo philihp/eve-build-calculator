@@ -11,19 +11,19 @@
     "refresh-sde": "node scripts/refresh-sde.mjs"
   },
   "dependencies": {
-    "next": "16.2.3",
+    "next": "16.2.7",
     "ramda": "^0.32.0",
-    "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
   },
   "devDependencies": {
     "@tsconfig/next": "^2.0.6",
-    "@types/node": "^20",
+    "@types/node": "^24.0.0",
     "@types/ramda": "^0.31.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.3",
-    "typescript": "^5"
+    "eslint": "^10.0.0",
+    "eslint-config-next": "16.2.7",
+    "typescript": "^6.0.0"
   }
 }
