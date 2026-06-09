@@ -20,7 +20,7 @@ const trimToMinute = (iso: string) =>
   iso.replace(/:\d\d(?:\.\d+)?Z$/, "Z");
 
 const html = (lastUpdated: string, commit: string) => `
-<h1><font color="navy">CapitalBOM SDE Browser</font></h1>
+<h1><font color="navy">EVE Online Static Data ETL</font></h1>
 <hr>
 <p><i>A static export of EVE Online's Static Data Export (SDE),
 rebuilt nightly and served as plain files.</i></p>

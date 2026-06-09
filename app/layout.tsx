@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "CapitalBOM",
-  description: "CapitalBOM",
+  title: "EVE Online Static Data ETL",
+  description: "EVE Online Static Data ETL",
 };
 
 export default function RootLayout({
