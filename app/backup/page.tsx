@@ -8,7 +8,7 @@ import {
   SHIP_CATALOG,
   type CatalogEntry,
   type Component,
-} from "./sde-data";
+} from "../sde-data";
 
 // ── Ship Entry (list state) ────────────────────────────────────────────────────
 
