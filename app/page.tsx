@@ -41,13 +41,6 @@ const html = (lastUpdated: string) => `
         Compatible with Google Sheets <tt>IMPORTDATA</tt>.
       </td>
     </tr>
-    <tr>
-      <td><a href="/backup">/backup</a></td>
-      <td align="left">
-        The interactive Capital BOM calculator (previously the
-        homepage).
-      </td>
-    </tr>
   </table>
 
   <br>
