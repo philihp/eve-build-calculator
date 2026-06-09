@@ -92,10 +92,12 @@ const DARK: Theme = {
 const toggle = (theme: Theme, stateLabel: string) => {
   const off = `background:${theme.headerBg};color:${theme.fg};border:2px outset ${theme.tableBorder};padding:2px 10px;text-decoration:none;font-family:monospace`;
   const on = `background:${theme.bg};color:${theme.fg};border:2px inset ${theme.tableBorder};padding:2px 10px;text-decoration:none;font-family:monospace;font-weight:bold`;
+  const lightStyle = stateLabel === "light" ? on : off;
+  const darkStyle = stateLabel === "dark" ? on : off;
   return `
 <div style="position:absolute;top:0.5em;right:0.5em;font-family:monospace">
-  <a href="/theme/light" style="${stateLabel === "light" ? on : off}">Light</a>
-  <a href="/theme/dark" style="${stateLabel === "dark" ? on : off}">Dark</a>
+  <a href="/theme/light" style="${lightStyle}">Light</a>
+  <a href="/theme/dark" style="${darkStyle}">Dark</a>
 </div>
 `;
 };
