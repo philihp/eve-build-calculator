@@ -8,6 +8,9 @@ export const dynamic = "force-static";
 export async function GET() {
   const rows = await computeStaticInputs();
   return new Response(toCsv(rows), {
-    headers: { "content-type": "text/csv; charset=utf-8" },
+    headers: {
+      "content-type": "text/csv; charset=utf-8",
+      "content-disposition": "inline",
+    },
   });
 }
