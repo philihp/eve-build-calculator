@@ -1,5 +1,5 @@
 import { sdeCacheHeaders } from "../sde-cache-headers";
-import { computeStaticOutputs, toCsv } from "./static-outputs-data";
+import { computeStaticOutputs, toCsv } from "../static-outputs/static-outputs-data";
 
 export const dynamic = "force-static";
 

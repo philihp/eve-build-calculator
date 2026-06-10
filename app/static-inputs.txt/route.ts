@@ -1,10 +1,10 @@
 import { sdeCacheHeaders } from "../sde-cache-headers";
-import { computeStaticOutputs, toCsv } from "./static-outputs-data";
+import { computeStaticInputs, toCsv } from "../static-inputs/static-inputs-data";
 
 export const dynamic = "force-static";
 
 export async function GET() {
-  const rows = await computeStaticOutputs();
+  const rows = await computeStaticInputs();
   return new Response(toCsv(rows), {
     headers: sdeCacheHeaders("text/plain; charset=utf-8"),
   });
