@@ -1,8 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { resolveLocation } from "../geo";
 import LocationTable from "../location-table";
 import DeviceLocationButton from "./device-location-button";
 import { LiveSun, LiveTimeProvider } from "./live";
+
+export const metadata: Metadata = {
+  title: "Sun Position",
+  description:
+    "Live azimuth and elevation of the sun at your location, updating in real time.",
+};
 
 // Server component so we can read the Vercel-provided location. The time and
 // sun position are then re-rendered live in the browser.

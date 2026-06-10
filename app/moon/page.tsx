@@ -1,9 +1,16 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { resolveLocation } from "../geo";
 import LocationTable from "../location-table";
 import DeviceLocationButton from "../sun/device-location-button";
 import { LiveTimeProvider } from "../sun/live";
 import { LiveMoon } from "./live";
+
+export const metadata: Metadata = {
+  title: "Moon Position",
+  description:
+    "Live phase, illumination, azimuth, elevation, and distance of the moon at your location, updating in real time.",
+};
 
 // Server component so we can read the Vercel-provided location. The time and
 // moon position are then re-rendered live in the browser.
