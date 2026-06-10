@@ -20,7 +20,7 @@
  * Host that serves the static CSV exports. Change this if you fork the site
  * or run it under a custom domain. Host only — no protocol, no path.
  */
-var EDENCOM_HOST = "edencom-sde.vercel.app";
+var EDENCOM_HOST = "sde.edencom.link";
 
 /** Name of the time-driven trigger's handler, used to find/remove it. */
 var REFRESH_HANDLER = "refreshEdencomData";

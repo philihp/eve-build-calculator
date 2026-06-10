@@ -51,13 +51,13 @@ permission to edit the spreadsheet and manage triggers).
 Your formulas can be the plain form — no manual setup required:
 
 ```
-=IMPORTDATA("https://edencom-sde.vercel.app/static-inputs.csv")
+=IMPORTDATA("https://sde.edencom.link/static-inputs.csv")
 ```
 
 On the first refresh the script rewrites it to:
 
 ```
-=IMPORTDATA("https://edencom-sde.vercel.app/static-inputs.csv?v=1749538800000")
+=IMPORTDATA("https://sde.edencom.link/static-inputs.csv?v=1749538800000")
 ```
 
 and bumps that number on each subsequent refresh.
@@ -69,7 +69,7 @@ version in a cell and concatenate it. Put a value in, say, `Config!B1` and
 write:
 
 ```
-=IMPORTDATA("https://edencom-sde.vercel.app/static-inputs.csv?v=" & Config!B1)
+=IMPORTDATA("https://sde.edencom.link/static-inputs.csv?v=" & Config!B1)
 ```
 
 The script recognizes this form and **leaves it untouched** — you refresh by
