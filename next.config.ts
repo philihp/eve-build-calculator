@@ -4,11 +4,13 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        // Render SDE jsonl files inline in the browser instead of triggering
-        // a download (Vercel's default for unknown extensions like .jsonl).
-        source: "/sde/:path*",
+        // Serve the newline-delimited JSON exports as application/jsonl, and
+        // inline so the browser renders them instead of downloading (Vercel's
+        // default for the unknown .jsonl extension). Other /sde assets like
+        // last-updated.txt keep their default text/plain handling.
+        source: "/sde/:file(.*\\.jsonl)",
         headers: [
-          { key: "Content-Type", value: "text/plain; charset=utf-8" },
+          { key: "Content-Type", value: "application/jsonl" },
           { key: "Content-Disposition", value: "inline" },
         ],
       },
