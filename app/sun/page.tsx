@@ -24,10 +24,6 @@ export default async function SunPage() {
     <LiveTimeProvider initialISO={now.toISOString()}>
       <main style={{ padding: "1rem", maxWidth: 720, margin: "0 auto" }}>
         <h1>Sun Position</h1>
-        <p>
-          Computed from your device location when shared, otherwise the
-          Vercel-provided IP estimate. The time and sun position update live.
-        </p>
 
         <h2>Location &amp; Time</h2>
         <LocationTable loc={loc} />
@@ -44,6 +40,11 @@ export default async function SunPage() {
 
         <p style={{ marginTop: "1.5rem" }}>
           <Link href="/moon">Where is the Moon? →</Link>
+        </p>
+
+        <p>
+          Computed from your device location when shared, otherwise the
+          Vercel-provided IP estimate. The time and sun position update live.
         </p>
       </main>
     </LiveTimeProvider>
