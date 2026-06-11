@@ -25,10 +25,6 @@ export default async function MoonPage() {
     <LiveTimeProvider initialISO={now.toISOString()}>
       <main style={{ padding: "1rem", maxWidth: 720, margin: "0 auto" }}>
         <h1>Moon Position</h1>
-        <p>
-          Computed from your device location when shared, otherwise the
-          Vercel-provided IP estimate. The time and moon position update live.
-        </p>
 
         <h2>Location &amp; Time</h2>
         <LocationTable loc={loc} />
@@ -45,6 +41,11 @@ export default async function MoonPage() {
 
         <p style={{ marginTop: "1.5rem" }}>
           <Link href="/sun">Where is the Sun? →</Link>
+        </p>
+
+        <p>
+          Computed from your device location when shared, otherwise the
+          Vercel-provided IP estimate. The time and moon position update live.
         </p>
       </main>
     </LiveTimeProvider>
